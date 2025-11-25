@@ -352,7 +352,23 @@ structured_extractor/
 - ✅ Retry mechanisms
 - ✅ 127 tests total
 
-### Phase 5: Batch Processing
+### Phase 5: Templates & Presets
+
+**Goals**: Reusable extraction templates
+
+- [ ] `DocumentTemplate` class enhancements
+- [ ] Template serialization (YAML/JSON)
+- [ ] Built-in templates (invoice, receipt, contract, resume)
+- [ ] Template inheritance
+- [ ] Template validation
+- [ ] Template registry
+
+**Deliverables**:
+- Reusable template system
+- Common document templates
+- Template management utilities
+
+### Phase 6: Batch Processing (Low Priority)
 
 **Goals**: Efficient multi-document processing
 
@@ -368,22 +384,6 @@ structured_extractor/
 - Batch processing capability
 - Async extraction support
 - Production-ready error handling
-
-### Phase 6: Templates & Presets
-
-**Goals**: Reusable extraction templates
-
-- [ ] `DocumentTemplate` class enhancements
-- [ ] Template serialization (YAML/JSON)
-- [ ] Built-in templates (invoice, receipt, contract, resume)
-- [ ] Template inheritance
-- [ ] Template validation
-- [ ] Template registry
-
-**Deliverables**:
-- Reusable template system
-- Common document templates
-- Template management utilities
 
 ### Phase 7: Document Chunking (Low Priority)
 

@@ -4,7 +4,11 @@ structured-extractor: A LLM-driven structured data extractor for document parsin
 
 from structured_extractor.core.config import ExtractionConfig, FieldConfig
 from structured_extractor.core.extractor import DocumentExtractor
-from structured_extractor.core.templates import DocumentTemplate
+from structured_extractor.core.templates import (
+    DocumentTemplate,
+    TemplateRegistry,
+    TemplateValidationError,
+)
 from structured_extractor.prompts.builder import (
     ExtractionExample,
     PromptBuilder,
@@ -24,6 +28,8 @@ __all__ = [
     # Core
     "DocumentExtractor",
     "DocumentTemplate",
+    "TemplateRegistry",
+    "TemplateValidationError",
     # Config
     "ExtractionConfig",
     "FieldConfig",
