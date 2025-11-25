@@ -12,6 +12,10 @@ from structured_extractor.prompts.builder import (
     PromptTemplate,
     PromptTemplates,
 )
+from structured_extractor.results.confidence import (
+    ConfidenceAssessment,
+    FieldConfidence,
+)
 from structured_extractor.results.types import ExtractionResult, FieldResult
 
 __version__ = "0.1.0"
@@ -32,4 +36,7 @@ __all__ = [
     # Results
     "ExtractionResult",
     "FieldResult",
+    # Confidence
+    "ConfidenceAssessment",
+    "FieldConfidence",
 ]

@@ -199,25 +199,151 @@ class DocumentExtractor:
         document: str,
         schema: type[T],
         config: ExtractionConfig | None = None,
+        field_hints: dict[str, str] | None = None,
     ) -> ExtractionResult[T]:
-        """Extract with confidence scoring (placeholder for Phase 5).
+        """Extract with confidence scoring for each field.
+
+        This method asks the LLM to self-assess its confidence in each
+        extracted field, returning both the data and confidence scores.
 
         Args:
             document: The document text to extract from.
             schema: Pydantic model defining the extraction schema.
             config: Extraction configuration.
+            field_hints: Additional hints for specific fields.
 
         Returns:
             ExtractionResult with confidence scores populated.
+
+        Example:
+            ```python
+            result = extractor.extract_with_confidence(doc, schema=Invoice)
+            print(f"Overall confidence: {result.confidence}")
+            print(f"Low confidence fields: {result.low_confidence_fields}")
+            for field, conf in result.field_confidences.items():
+                print(f"  {field}: {conf:.2f}")
+            ```
         """
-        # For now, delegate to regular extract
-        # Phase 5 will implement proper confidence scoring
-        effective_config = config or self.default_config
-        effective_config = ExtractionConfig(
-            **effective_config.model_dump(),
-            include_confidence=True,
+        from structured_extractor.results.confidence import (
+            ConfidenceAssessment,
+            build_confidence_schema,
+            identify_low_confidence_fields,
         )
-        return self.extract(document, schema=schema, config=effective_config)
+
+        effective_config = config or self.default_config
+        resolved_hints = field_hints or {}
+
+        # Build the confidence-wrapped schema
+        confidence_schema = build_confidence_schema(schema)
+
+        # Build prompts with confidence instructions
+        system_prompt = self._build_confidence_system_prompt(effective_config.system_prompt)
+        user_message = self._prompt_builder.build_extraction_prompt(
+            document=document,
+            schema=schema,
+            field_hints=resolved_hints,
+        )
+
+        # Add confidence assessment instructions to the user prompt
+        confidence_instructions = self._build_confidence_instructions(schema)
+        user_message = f"{user_message}\n\n{confidence_instructions}"
+
+        # Prepare messages
+        messages = [
+            Message(role="system", content=system_prompt),
+            Message(role="user", content=user_message),
+        ]
+
+        # Prepare LLM kwargs
+        llm_kwargs: dict[str, Any] = {
+            "response_format": confidence_schema,
+            "temperature": effective_config.temperature,
+        }
+        if effective_config.max_tokens:
+            llm_kwargs["max_tokens"] = effective_config.max_tokens
+
+        # Call LLM with retry logic
+        last_error: Exception | None = None
+        for _attempt in range(effective_config.max_retries):
+            try:
+                response = self._client.generate(messages, **llm_kwargs)
+
+                if response.parsed is not None:
+                    # Extract the data and confidence from the response
+                    parsed = response.parsed
+                    extracted_data = parsed.extracted_data
+                    confidence_assessment: ConfidenceAssessment = parsed.confidence_assessment
+
+                    # Convert field confidences to dict
+                    field_confidences = {
+                        fc.field_name: fc.confidence
+                        for fc in confidence_assessment.field_confidences
+                    }
+
+                    # Identify low confidence fields
+                    low_conf_fields = identify_low_confidence_fields(
+                        field_confidences,
+                        threshold=effective_config.confidence_threshold,
+                    )
+
+                    return ExtractionResult(
+                        data=extracted_data,
+                        success=True,
+                        confidence=confidence_assessment.overall_confidence,
+                        field_confidences=field_confidences,
+                        low_confidence_fields=low_conf_fields if low_conf_fields else None,
+                        model_used=response.model,
+                        cached=response.cached,
+                        tokens_used=response.usage.total_tokens,
+                        cost_usd=response.tracking.cost_usd if response.tracking else None,
+                        raw_response=response.content,
+                    )
+                else:
+                    last_error = ValueError("LLM did not return parsed data")
+
+            except Exception as e:
+                last_error = e
+                if not effective_config.retry_on_validation_error:
+                    break
+
+        # All retries failed - return error result
+        error_data = self._create_error_placeholder(schema)
+
+        return ExtractionResult[T](
+            data=cast(T, error_data),
+            success=False,
+            error=str(last_error) if last_error else "Unknown error",
+            model_used=self.model,
+        )
+
+    def _build_confidence_system_prompt(self, custom_prompt: str | None = None) -> str:
+        """Build system prompt with confidence assessment instructions."""
+        base_prompt = custom_prompt or self._prompt_builder.build_system_prompt()
+        confidence_addition = (
+            "\n\nIMPORTANT: For this extraction, you must also assess your confidence "
+            "in each extracted field. Rate your confidence from 0.0 (no confidence, "
+            "guessing) to 1.0 (completely certain the value is correct). Consider:\n"
+            "- 1.0: Value is explicitly and clearly stated in the document\n"
+            "- 0.8-0.9: Value is present but requires minor interpretation\n"
+            "- 0.6-0.7: Value is inferred from context or partially visible\n"
+            "- 0.4-0.5: Value is a reasonable guess based on limited information\n"
+            "- 0.0-0.3: Value is largely unknown or fabricated"
+        )
+        return base_prompt + confidence_addition
+
+    def _build_confidence_instructions(self, schema: type[BaseModel]) -> str:
+        """Build instructions for confidence assessment."""
+        field_names = list(schema.model_fields.keys())
+        fields_list = ", ".join(f"'{f}'" for f in field_names)
+
+        return (
+            "## Confidence Assessment Required\n\n"
+            "After extracting the data, provide a confidence assessment:\n"
+            f"- Assess confidence for each field: {fields_list}\n"
+            "- Provide an overall_confidence score (0.0-1.0)\n"
+            "- Be honest about uncertainty - lower confidence is better than wrong data\n"
+            "- If a field value is not found in the document, confidence should be 0.0-0.3"
+        )
 
     def extract_from_image(
         self,

@@ -49,6 +49,10 @@ class ExtractionResult(BaseModel, Generic[T]):
         default=None,
         description="Detailed results for each field",
     )
+    low_confidence_fields: list[str] | None = Field(
+        default=None,
+        description="List of field names with confidence below threshold",
+    )
 
     # Metadata
     model_used: str | None = Field(

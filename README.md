@@ -334,29 +334,32 @@ structured_extractor/
 - ✅ Reasoning mode for complex extractions
 - ✅ 106 tests total
 
-### Phase 4: Confidence & Quality
+### Phase 4: Confidence & Quality ✅
 
 **Goals**: Add confidence scoring and quality metrics
 
-- [ ] Confidence score generation
-- [ ] Field-level confidence
-- [ ] Low-confidence flagging
+- [x] Confidence score generation via `extract_with_confidence()`
+- [x] Field-level confidence scores
+- [x] Low-confidence field flagging
 - [ ] Extraction quality metrics
-- [ ] Retry logic for low-confidence results
+- [x] Retry logic for errors
 - [ ] Human-in-the-loop hooks
 
 **Deliverables**:
-- Confidence scoring system
-- Quality assurance tools
-- Retry mechanisms
+- ✅ `extract_with_confidence()` method for confidence-scored extractions
+- ✅ `ConfidenceAssessment` and `FieldConfidence` types
+- ✅ `low_confidence_fields` in `ExtractionResult`
+- ✅ Retry mechanisms
+- ✅ 127 tests total
 
 ### Phase 5: Batch Processing
 
 **Goals**: Efficient multi-document processing
 
 - [ ] `BatchExtractor` class
+- [ ] Async extraction with `aextract()` method
 - [ ] Parallel extraction with asyncio
-- [ ] Progress tracking
+- [ ] Progress tracking via callbacks
 - [ ] Error handling and partial results
 - [ ] Rate limiting
 - [ ] Cost estimation
