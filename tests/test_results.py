@@ -1,6 +1,6 @@
 """Tests for result types."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from structured_extractor.results.types import ExtractionResult, FieldResult
 

@@ -171,6 +171,42 @@ invoice_template = DocumentTemplate(
 result = extractor.extract(document_text, template=invoice_template)
 ```
 
+### Using Prompt Templates
+
+```python
+from structured_extractor import (
+    DocumentExtractor,
+    PromptBuilder,
+    PromptTemplates,
+    PromptStrategy,
+    ExtractionExample,
+)
+
+# Use a built-in template for invoice extraction
+builder = PromptBuilder(template=PromptTemplates.invoice())
+extractor = DocumentExtractor(prompt_builder=builder)
+
+# Or use strict mode for high-accuracy extraction
+strict_strategy = PromptStrategy(strict_mode=True, include_reasoning=True)
+builder = PromptBuilder(strategy=strict_strategy)
+
+# Add few-shot examples for better results
+examples = [
+    ExtractionExample(
+        input_text="Invoice #12345\nDate: 2024-01-15\nTotal: $500.00",
+        output={"invoice_number": "12345", "date": "2024-01-15", "total": 500.0},
+        explanation="Extracted invoice number, date, and total from header",
+    )
+]
+
+result = extractor.extract(
+    document_text,
+    schema=Invoice,
+    field_hints={"date": "Look for invoice date, not due date"},
+    examples=examples,
+)
+```
+
 ### Extraction with Confidence Scores
 
 ```python
@@ -245,40 +281,108 @@ structured_extractor/
 
 ## 📋 Implementation Roadmap
 
-### Phase 1: Core Foundation (Week 1)
+### Phase 1: Core Foundation ✅
 
 **Goals**: Set up project structure and basic extraction
 
-- [ ] Project scaffolding with uv
-- [ ] Basic `DocumentExtractor` class
-- [ ] Integration with seeds-clients `OpenAIClient`
-- [ ] Simple schema-to-prompt conversion
-- [ ] Basic `ExtractionResult` type
-- [ ] Unit test infrastructure with pytest
+- [x] Project scaffolding with uv
+- [x] Basic `DocumentExtractor` class
+- [x] Integration with seeds-clients `OpenAIClient`
+- [x] Simple schema-to-prompt conversion
+- [x] Basic `ExtractionResult` type
+- [x] Unit test infrastructure with pytest
 
 **Deliverables**:
-- Working basic extraction with Pydantic models
-- Simple prompt generation from schema
-- Basic test coverage
+- ✅ Working basic extraction with Pydantic models
+- ✅ Simple prompt generation from schema
+- ✅ Basic test coverage (37 tests)
 
-### Phase 2: Advanced Schema Support (Week 2)
+### Phase 2: Advanced Schema Support ✅
 
 **Goals**: Support complex Pydantic schemas
 
-- [ ] Nested model support
-- [ ] List/array field extraction
-- [ ] Optional fields and defaults
-- [ ] Field descriptions in prompts
-- [ ] Union types support
-- [ ] Enum extraction
-- [ ] Custom validators integration
+- [x] Nested model support
+- [x] List/array field extraction
+- [x] Optional fields and defaults
+- [x] Field descriptions in prompts
+- [x] Union types support
+- [x] Enum extraction
+- [x] Literal types support
+- [x] Field constraints (ge, le, min_length, max_length, pattern)
 
 **Deliverables**:
-- Full Pydantic model support
-- Complex nested structure extraction
-- Comprehensive validation
+- ✅ Full Pydantic model support
+- ✅ Complex nested structure extraction
+- ✅ Comprehensive validation (67 tests total)
 
-### Phase 3: Document Chunking (Week 3)
+### Phase 3: Prompt Engineering ✅
+
+**Goals**: Optimize extraction quality
+
+- [x] Dynamic prompt builder enhancements
+- [x] Field-specific extraction hints
+- [x] Few-shot examples support
+- [x] System prompt customization
+- [x] Prompt templates library (invoice, resume, contract, strict, lenient)
+- [x] Schema-aware prompt optimization
+
+**Deliverables**:
+- ✅ `PromptStrategy` for configuring prompt behavior
+- ✅ `PromptTemplate` for reusable extraction scenarios
+- ✅ `PromptTemplates` with 6 built-in templates
+- ✅ `ExtractionExample` for few-shot learning
+- ✅ Reasoning mode for complex extractions
+- ✅ 106 tests total
+
+### Phase 4: Confidence & Quality
+
+**Goals**: Add confidence scoring and quality metrics
+
+- [ ] Confidence score generation
+- [ ] Field-level confidence
+- [ ] Low-confidence flagging
+- [ ] Extraction quality metrics
+- [ ] Retry logic for low-confidence results
+- [ ] Human-in-the-loop hooks
+
+**Deliverables**:
+- Confidence scoring system
+- Quality assurance tools
+- Retry mechanisms
+
+### Phase 5: Batch Processing
+
+**Goals**: Efficient multi-document processing
+
+- [ ] `BatchExtractor` class
+- [ ] Parallel extraction with asyncio
+- [ ] Progress tracking
+- [ ] Error handling and partial results
+- [ ] Rate limiting
+- [ ] Cost estimation
+
+**Deliverables**:
+- Batch processing capability
+- Async extraction support
+- Production-ready error handling
+
+### Phase 6: Templates & Presets
+
+**Goals**: Reusable extraction templates
+
+- [ ] `DocumentTemplate` class enhancements
+- [ ] Template serialization (YAML/JSON)
+- [ ] Built-in templates (invoice, receipt, contract, resume)
+- [ ] Template inheritance
+- [ ] Template validation
+- [ ] Template registry
+
+**Deliverables**:
+- Reusable template system
+- Common document templates
+- Template management utilities
+
+### Phase 7: Document Chunking (Low Priority)
 
 **Goals**: Handle large documents
 
@@ -295,71 +399,7 @@ structured_extractor/
 - Multiple chunking strategies
 - Intelligent result merging
 
-### Phase 4: Prompt Engineering (Week 4)
-
-**Goals**: Optimize extraction quality
-
-- [ ] Dynamic prompt builder
-- [ ] Field-specific extraction hints
-- [ ] Few-shot examples support
-- [ ] System prompt customization
-- [ ] Prompt templates library
-- [ ] Schema-aware prompt optimization
-
-**Deliverables**:
-- High-quality extraction prompts
-- Customizable prompt templates
-- Improved extraction accuracy
-
-### Phase 5: Confidence & Quality (Week 5)
-
-**Goals**: Add confidence scoring and quality metrics
-
-- [ ] Confidence score generation
-- [ ] Field-level confidence
-- [ ] Low-confidence flagging
-- [ ] Extraction quality metrics
-- [ ] Retry logic for low-confidence results
-- [ ] Human-in-the-loop hooks
-
-**Deliverables**:
-- Confidence scoring system
-- Quality assurance tools
-- Retry mechanisms
-
-### Phase 6: Batch Processing (Week 6)
-
-**Goals**: Efficient multi-document processing
-
-- [ ] `BatchExtractor` class
-- [ ] Parallel extraction with asyncio
-- [ ] Progress tracking
-- [ ] Error handling and partial results
-- [ ] Rate limiting
-- [ ] Cost estimation
-
-**Deliverables**:
-- Batch processing capability
-- Async extraction support
-- Production-ready error handling
-
-### Phase 7: Templates & Presets (Week 7)
-
-**Goals**: Reusable extraction templates
-
-- [ ] `DocumentTemplate` class
-- [ ] Template serialization (YAML/JSON)
-- [ ] Built-in templates (invoice, receipt, contract, resume)
-- [ ] Template inheritance
-- [ ] Template validation
-- [ ] Template registry
-
-**Deliverables**:
-- Reusable template system
-- Common document templates
-- Template management utilities
-
-### Phase 8: Documentation & Polish (Week 8)
+### Phase 8: Documentation & Polish
 
 **Goals**: Production readiness
 

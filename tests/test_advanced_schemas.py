@@ -201,8 +201,8 @@ class TestOptionalFieldsAndDefaults:
         assert "title" in desc
         # description is optional
         lines = desc.split("\n")
-        title_line = next(l for l in lines if "title" in l)
-        desc_line = next(l for l in lines if "description" in l)
+        title_line = next(line for line in lines if "title" in line)
+        desc_line = next(line for line in lines if "description" in line)
 
         assert "required" in title_line
         assert "optional" in desc_line
