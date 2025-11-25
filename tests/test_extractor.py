@@ -32,7 +32,7 @@ class TestDocumentExtractorInit:
         with patch("structured_extractor.core.extractor.OpenAIClient"):
             extractor = DocumentExtractor(api_key="test-key")
 
-            assert extractor.model == "gpt-4o"
+            assert extractor.model == "gpt-4.1"
             assert extractor.default_config is not None
             assert extractor.default_config.temperature == 0.0
 
@@ -41,10 +41,10 @@ class TestDocumentExtractorInit:
         with patch("structured_extractor.core.extractor.OpenAIClient"):
             extractor = DocumentExtractor(
                 api_key="test-key",
-                model="gpt-4o-mini",
+                model="gpt-4.1-mini",
             )
 
-            assert extractor.model == "gpt-4o-mini"
+            assert extractor.model == "gpt-4.1-mini"
 
     def test_init_with_custom_config(self) -> None:
         """Test initialization with custom config."""
@@ -90,7 +90,7 @@ class TestDocumentExtractorExtract:
         mock_response = MagicMock()
         mock_response.parsed = Person(name="John Doe", age=30)
         mock_response.content = json.dumps({"name": "John Doe", "age": 30})
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 100
         mock_response.tracking = None
@@ -102,7 +102,7 @@ class TestDocumentExtractorExtract:
         assert result.success is True
         assert result.data.name == "John Doe"
         assert result.data.age == 30
-        assert result.model_used == "gpt-4o"
+        assert result.model_used == "gpt-4.1"
 
     def test_extract_invoice(
         self, extractor: DocumentExtractor, mock_client: MagicMock
@@ -119,7 +119,7 @@ class TestDocumentExtractorExtract:
             "total_amount": 1500.00,
             "vendor_name": "Acme Corp",
         })
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 150
         mock_response.tracking = None
@@ -145,7 +145,7 @@ class TestDocumentExtractorExtract:
         mock_response = MagicMock()
         mock_response.parsed = Person(name="Test", age=25)
         mock_response.content = "{}"
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 50
         mock_response.tracking = None
@@ -165,7 +165,7 @@ class TestDocumentExtractorExtract:
         mock_response = MagicMock()
         mock_response.parsed = Person(name="Test", age=25)
         mock_response.content = "{}"
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 50
         mock_response.tracking = None
@@ -185,7 +185,7 @@ class TestDocumentExtractorExtract:
         mock_response = MagicMock()
         mock_response.parsed = Person(name="Cached", age=99)
         mock_response.content = "{}"
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = True
         mock_response.usage.total_tokens = 0
         mock_response.tracking = None
@@ -214,7 +214,7 @@ class TestDocumentExtractorExtract:
         mock_response = MagicMock()
         mock_response.parsed = Person(name="Success", age=1)
         mock_response.content = "{}"
-        mock_response.model = "gpt-4o"
+        mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 50
         mock_response.tracking = None

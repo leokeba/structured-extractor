@@ -47,7 +47,7 @@ class Invoice(BaseModel):
 # Initialize the extractor
 extractor = DocumentExtractor(
     api_key="your-openai-key",  # or use OPENAI_API_KEY env var
-    model="gpt-4o",
+    model="gpt-4.1",
 )
 
 # Extract data from a document
@@ -127,7 +127,7 @@ from structured_extractor import BatchExtractor
 
 batch_extractor = BatchExtractor(
     api_key="your-openai-key",
-    model="gpt-4o",
+    model="gpt-4.1",
     max_concurrent=5,  # Parallel extraction
 )
 
@@ -214,7 +214,7 @@ from structured_extractor import DocumentExtractor, ExtractionConfig
 
 extractor = DocumentExtractor(
     api_key="your-openai-key",
-    model="gpt-4o",
+    model="gpt-4.1",
 )
 
 config = ExtractionConfig(
@@ -239,7 +239,7 @@ from structured_extractor import DocumentExtractor, ChunkingStrategy
 
 extractor = DocumentExtractor(
     api_key="your-openai-key",
-    model="gpt-4o",
+    model="gpt-4.1",
     chunking_strategy=ChunkingStrategy.SEMANTIC,  # or FIXED, PARAGRAPH, PAGE
     chunk_size=4000,  # tokens per chunk
     chunk_overlap=200,  # overlap for context continuity
@@ -426,7 +426,7 @@ OPENAI_API_KEY=your-api-key
 # Optional
 STRUCTURED_EXTRACTOR_CACHE_DIR=./cache
 STRUCTURED_EXTRACTOR_CACHE_TTL=24  # hours
-STRUCTURED_EXTRACTOR_DEFAULT_MODEL=gpt-4o
+STRUCTURED_EXTRACTOR_DEFAULT_MODEL=gpt-4.1
 ```
 
 ### Extractor Configuration
@@ -437,7 +437,7 @@ from structured_extractor import DocumentExtractor, ExtractionConfig
 extractor = DocumentExtractor(
     # LLM Configuration
     api_key="your-key",
-    model="gpt-4o",
+    model="gpt-4.1",
     temperature=0.0,  # Deterministic extraction
     
     # Caching

@@ -53,7 +53,7 @@ def example_basic_extraction() -> None:
     # Initialize extractor
     extractor = DocumentExtractor(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o",
+        model="gpt-4.1",
         cache_dir="cache",
     )
 
@@ -101,7 +101,7 @@ def example_nested_extraction() -> None:
 
     extractor = DocumentExtractor(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o",
+        model="gpt-4.1",
         cache_dir="cache",
     )
 
@@ -127,7 +127,7 @@ def example_nested_extraction() -> None:
     if result.success:
         print(f"Invoice: {result.data.invoice_number}")
         print(f"Vendor: {result.data.vendor_name}")
-        print(f"\nLine Items:")
+        print("\nLine Items:")
         for item in result.data.line_items:
             print(f"  - {item.description}: ${item.total:.2f}")
         print(f"\nSubtotal: ${result.data.subtotal:.2f}")
@@ -145,7 +145,7 @@ def example_custom_config() -> None:
 
     extractor = DocumentExtractor(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o-mini",  # Use smaller model
+        model="gpt-4.1-mini",  # Use smaller model
         cache_dir="cache",
     )
 

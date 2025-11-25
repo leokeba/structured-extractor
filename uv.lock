@@ -458,7 +458,7 @@ wheels = [
 [[package]]
 name = "seeds-clients"
 version = "0.1.0"
-source = { git = "https://github.com/leokeba/seeds-clients.git#94b5b088eb03f5b821a53cc4327fb8625e10a998" }
+source = { git = "https://github.com/leokeba/seeds-clients.git#e506d1dff615b205c69a89df99fc18434d0ab0c0" }
 dependencies = [
     { name = "diskcache" },
     { name = "ecologits" },

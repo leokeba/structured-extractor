@@ -49,6 +49,7 @@ dmypy.json
 
 # Project specific
 cache/
+data/
 *.log
 .env
 .env.local

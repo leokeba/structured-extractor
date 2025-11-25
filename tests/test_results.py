@@ -49,14 +49,14 @@ class TestExtractionResult:
         result = ExtractionResult(
             data=data,
             success=True,
-            model_used="gpt-4o",
+            model_used="gpt-4.1",
             tokens_used=100,
         )
 
         assert result.data.name == "Test"
         assert result.data.value == 42
         assert result.success is True
-        assert result.model_used == "gpt-4o"
+        assert result.model_used == "gpt-4.1"
         assert result.tokens_used == 100
         assert result.error is None
 
