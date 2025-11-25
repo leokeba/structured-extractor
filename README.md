@@ -9,13 +9,14 @@ A powerful LLM-driven structured data extractor for document parsing, built on t
 ### Key Features
 
 - 🔧 **Declarative Schema Definition** - Use Pydantic models to define extraction templates
-- 📑 **Document Chunking** - Automatic handling of large documents that exceed context limits
-- 🔄 **Multi-pass Extraction** - Extract different data types in separate optimized passes
+- 📝 **Built-in Templates** - Pre-configured templates for invoices, receipts, resumes, and contracts
 - ✅ **Validation & Coercion** - Automatic type validation and data coercion via Pydantic
 - 💾 **Smart Caching** - Leverage seeds-clients caching for repeated extractions
 - 🌍 **Carbon Tracking** - Built-in environmental impact tracking from seeds-clients
-- 📊 **Confidence Scores** - Optional confidence scoring for extracted fields
-- 🔌 **Extensible** - Support for custom extractors and post-processors
+- 📊 **Confidence Scores** - Field-level and overall confidence scoring
+- 📈 **Quality Metrics** - Completeness ratios, warnings, and review flags
+- 🔄 **Human-in-the-Loop** - Callback hooks for low-confidence review
+- 🔌 **Extensible** - Template inheritance, custom prompts, and registries
 
 ## 📦 Installation
 
@@ -149,26 +150,43 @@ for result in results:
 ### Document Templates
 
 ```python
-from structured_extractor import DocumentTemplate, FieldConfig
+from structured_extractor import DocumentTemplate, FieldConfig, InvoiceSchema
 
 # Define a reusable template
 invoice_template = DocumentTemplate(
     name="invoice",
-    schema=Invoice,
+    schema_class=InvoiceSchema,
     system_prompt="You are an expert invoice data extractor. Extract data precisely.",
-    field_configs={
-        "date": FieldConfig(
-            extraction_hint="Look for date formats like MM/DD/YYYY or YYYY-MM-DD",
-            required=True,
-        ),
-        "total_amount": FieldConfig(
-            extraction_hint="The final total after taxes and discounts",
-            required=True,
-        ),
+    field_hints={
+        "date": "Look for date formats like MM/DD/YYYY or YYYY-MM-DD",
+        "total_amount": "The final total after taxes and discounts",
     },
 )
 
 result = extractor.extract(document_text, template=invoice_template)
+```
+
+### Built-in Templates
+
+```python
+from structured_extractor import BuiltinTemplates, DocumentExtractor
+
+# Use pre-configured templates for common document types
+extractor = DocumentExtractor(model="gpt-4.1")
+
+# Invoice extraction with optimized prompts
+invoice_template = BuiltinTemplates.invoice()
+result = extractor.extract(invoice_text, template=invoice_template)
+print(result.data.total_amount)
+
+# Also available: receipt, resume, contract
+receipt_template = BuiltinTemplates.receipt()
+resume_template = BuiltinTemplates.resume()
+contract_template = BuiltinTemplates.contract()
+
+# Create a registry with all built-in templates
+registry = BuiltinTemplates.create_registry()
+template = registry.get("builtin_invoice")
 ```
 
 ### Using Prompt Templates
@@ -217,19 +235,65 @@ extractor = DocumentExtractor(
     model="gpt-4.1",
 )
 
-config = ExtractionConfig(
-    include_confidence=True,
-    confidence_threshold=0.8,  # Flag low-confidence extractions
-)
-
-result = extractor.extract(document_text, schema=Invoice, config=config)
+# Use extract_with_confidence for confidence-scored extraction
+result = extractor.extract_with_confidence(document_text, schema=Invoice)
 
 print(f"Data: {result.data}")
-print(f"Confidence: {result.confidence}")
+print(f"Overall Confidence: {result.confidence}")
 print(f"Field confidences: {result.field_confidences}")
+print(f"Low confidence fields: {result.low_confidence_fields}")
 # Output:
-# Confidence: 0.95
+# Overall Confidence: 0.95
 # Field confidences: {'invoice_number': 0.99, 'date': 0.95, 'vendor_name': 0.92, ...}
+```
+
+### Quality Metrics
+
+```python
+from structured_extractor import DocumentExtractor, ExtractionConfig
+
+config = ExtractionConfig(
+    compute_quality_metrics=True,
+    confidence_threshold=0.8,
+)
+
+extractor = DocumentExtractor(model="gpt-4.1", default_config=config)
+result = extractor.extract_with_confidence(document_text, schema=Invoice)
+
+# Access detailed quality metrics
+metrics = result.quality_metrics
+print(f"Completeness: {metrics.completeness_ratio:.0%}")
+print(f"Average confidence: {metrics.average_confidence:.2f}")
+print(f"Needs review: {metrics.needs_review}")
+print(f"Warnings: {metrics.quality_warnings}")
+```
+
+### Human-in-the-Loop Callbacks
+
+```python
+from structured_extractor import DocumentExtractor, ExtractionConfig, ExtractionResult
+
+def review_low_confidence(result: ExtractionResult) -> ExtractionResult | None:
+    """Called when extraction confidence is below threshold."""
+    print(f"Low confidence extraction: {result.confidence}")
+    # Return modified result, or None to keep original
+    return None
+
+def review_required(result: ExtractionResult) -> ExtractionResult | None:
+    """Called when quality metrics indicate review is needed."""
+    if result.quality_metrics and result.quality_metrics.needs_review:
+        print(f"Review needed: {result.quality_metrics.quality_warnings}")
+    return None
+
+config = ExtractionConfig(
+    compute_quality_metrics=True,
+    on_low_confidence=review_low_confidence,
+    on_review_required=review_required,
+    review_confidence_threshold=0.5,
+)
+
+extractor = DocumentExtractor(model="gpt-4.1", default_config=config)
+result = extractor.extract_with_confidence(document_text, schema=Invoice)
 ```
 
 ### Large Document Handling
@@ -257,26 +321,20 @@ structured_extractor/
 ├── __init__.py              # Public API exports
 ├── core/
 │   ├── extractor.py         # Main DocumentExtractor class
-│   ├── batch.py             # BatchExtractor for parallel processing
-│   ├── templates.py         # DocumentTemplate definitions
-│   └── config.py            # ExtractionConfig and options
-├── chunking/
-│   ├── strategies.py        # Chunking strategy implementations
-│   ├── semantic.py          # Semantic chunking (sentence-aware)
-│   └── merger.py            # Result merging from chunks
+│   ├── templates.py         # DocumentTemplate, TemplateRegistry
+│   └── config.py            # ExtractionConfig, FieldConfig, callbacks
 ├── prompts/
-│   ├── builder.py           # Dynamic prompt construction
-│   ├── templates.py         # Prompt templates
-│   └── optimizer.py         # Prompt optimization utilities
-├── validation/
-│   ├── validators.py        # Custom validation rules
-│   └── coercion.py          # Type coercion utilities
+│   └── builder.py           # PromptBuilder, PromptStrategy, PromptTemplates
 ├── results/
-│   ├── types.py             # ExtractionResult, FieldResult types
-│   └── confidence.py        # Confidence scoring logic
-└── utils/
-    ├── tokens.py            # Token counting utilities
-    └── text.py              # Text preprocessing utilities
+│   ├── types.py             # ExtractionResult, FieldResult
+│   └── confidence.py        # Confidence scoring, ExtractionQualityMetrics
+├── schemas/                 # Built-in Pydantic schemas for common documents
+│   ├── invoice.py           # InvoiceSchema, InvoiceLineItem
+│   ├── receipt.py           # ReceiptSchema
+│   ├── resume.py            # ResumeSchema, WorkExperience, Education
+│   └── contract.py          # ContractSchema, ContractParty
+└── templates/               # Pre-configured extraction templates
+    └── builtins.py          # BuiltinTemplates factory class
 ```
 
 ## 📋 Implementation Roadmap
@@ -341,32 +399,39 @@ structured_extractor/
 - [x] Confidence score generation via `extract_with_confidence()`
 - [x] Field-level confidence scores
 - [x] Low-confidence field flagging
-- [ ] Extraction quality metrics
+- [x] Extraction quality metrics
 - [x] Retry logic for errors
-- [ ] Human-in-the-loop hooks
+- [x] Human-in-the-loop hooks
 
 **Deliverables**:
 - ✅ `extract_with_confidence()` method for confidence-scored extractions
 - ✅ `ConfidenceAssessment` and `FieldConfidence` types
 - ✅ `low_confidence_fields` in `ExtractionResult`
+- ✅ `ExtractionQualityMetrics` for detailed quality assessment
+- ✅ `compute_quality_metrics()` function
+- ✅ Human-in-the-loop callbacks: `on_low_confidence`, `on_review_required`, `on_validation_error`
 - ✅ Retry mechanisms
-- ✅ 127 tests total
+- ✅ 175 tests total
 
-### Phase 5: Templates & Presets
+### Phase 5: Templates & Presets ✅
 
 **Goals**: Reusable extraction templates
 
-- [ ] `DocumentTemplate` class enhancements
-- [ ] Template serialization (YAML/JSON)
-- [ ] Built-in templates (invoice, receipt, contract, resume)
-- [ ] Template inheritance
-- [ ] Template validation
-- [ ] Template registry
+- [x] `DocumentTemplate` class enhancements
+- [x] Template serialization (YAML/JSON)
+- [x] Built-in templates (invoice, receipt, contract, resume)
+- [x] Template inheritance
+- [x] Template validation
+- [x] Template registry
 
 **Deliverables**:
-- Reusable template system
-- Common document templates
-- Template management utilities
+- ✅ `DocumentTemplate` with serialization to JSON/YAML
+- ✅ `TemplateRegistry` for managing and discovering templates
+- ✅ Template inheritance via `merge_with_parent()`
+- ✅ `BuiltinTemplates` factory with invoice, receipt, resume, contract templates
+- ✅ Built-in schemas: `InvoiceSchema`, `ReceiptSchema`, `ResumeSchema`, `ContractSchema`
+- ✅ Template validation and field hint validation
+- ✅ 216 tests total
 
 ### Phase 6: Batch Processing (Low Priority)
 

@@ -1,8 +1,16 @@
 """Configuration classes for extraction."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+# Type aliases for callback functions
+# Using Any to avoid circular imports with ExtractionResult
+ReviewCallback = Callable[[Any], Any]
+ValidationCallback = Callable[[BaseModel], tuple[bool, str | None]]
 
 
 class FieldConfig(BaseModel):
@@ -28,6 +36,8 @@ class FieldConfig(BaseModel):
 
 class ExtractionConfig(BaseModel):
     """Configuration for the extraction process."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Confidence settings
     include_confidence: bool = Field(
@@ -72,4 +82,39 @@ class ExtractionConfig(BaseModel):
     include_field_descriptions: bool = Field(
         default=True,
         description="Include field descriptions in the prompt",
+    )
+
+    # Quality metrics settings
+    compute_quality_metrics: bool = Field(
+        default=False,
+        description="Whether to compute quality metrics for extraction results",
+    )
+
+    # Human-in-the-loop callback hooks
+    on_low_confidence: ReviewCallback | None = Field(
+        default=None,
+        description=(
+            "Callback invoked when extraction has low confidence fields. "
+            "Receives ExtractionResult, can return modified result or None to keep original."
+        ),
+    )
+    on_validation_error: ValidationCallback | None = Field(
+        default=None,
+        description=(
+            "Callback invoked when validation fails. "
+            "Receives the data, returns (is_valid, error_message)."
+        ),
+    )
+    on_review_required: ReviewCallback | None = Field(
+        default=None,
+        description=(
+            "Callback invoked when quality metrics indicate review is needed. "
+            "Receives ExtractionResult, can return modified result or None."
+        ),
+    )
+    review_confidence_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Confidence threshold below which on_low_confidence is triggered",
     )

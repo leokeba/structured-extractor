@@ -18,9 +18,26 @@ from structured_extractor.prompts.builder import (
 )
 from structured_extractor.results.confidence import (
     ConfidenceAssessment,
+    ExtractionQualityMetrics,
     FieldConfidence,
+    compute_quality_metrics,
 )
 from structured_extractor.results.types import ExtractionResult, FieldResult
+
+# Built-in schemas
+from structured_extractor.schemas import (
+    ContractParty,
+    ContractSchema,
+    Education,
+    InvoiceLineItem,
+    InvoiceSchema,
+    ReceiptSchema,
+    ResumeSchema,
+    WorkExperience,
+)
+
+# Built-in templates
+from structured_extractor.templates import BuiltinTemplates
 
 __version__ = "0.1.0"
 
@@ -30,6 +47,17 @@ __all__ = [
     "DocumentTemplate",
     "TemplateRegistry",
     "TemplateValidationError",
+    # Built-in Templates
+    "BuiltinTemplates",
+    # Built-in Schemas
+    "InvoiceSchema",
+    "InvoiceLineItem",
+    "ReceiptSchema",
+    "ResumeSchema",
+    "WorkExperience",
+    "Education",
+    "ContractSchema",
+    "ContractParty",
     # Config
     "ExtractionConfig",
     "FieldConfig",
@@ -42,7 +70,9 @@ __all__ = [
     # Results
     "ExtractionResult",
     "FieldResult",
-    # Confidence
+    # Confidence & Quality
     "ConfidenceAssessment",
     "FieldConfidence",
+    "ExtractionQualityMetrics",
+    "compute_quality_metrics",
 ]

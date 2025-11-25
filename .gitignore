@@ -59,3 +59,4 @@ examples/assets/*.png
 
 # Test results output
 examples/results/
+examples/benchmark_results/

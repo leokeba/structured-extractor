@@ -206,6 +206,10 @@ class DocumentExtractor:
         This method asks the LLM to self-assess its confidence in each
         extracted field, returning both the data and confidence scores.
 
+        If configured, this method will also:
+        - Compute quality metrics for the extraction
+        - Invoke human-in-the-loop callbacks for low confidence results
+
         Args:
             document: The document text to extract from.
             schema: Pydantic model defining the extraction schema.
@@ -227,6 +231,7 @@ class DocumentExtractor:
         from structured_extractor.results.confidence import (
             ConfidenceAssessment,
             build_confidence_schema,
+            compute_quality_metrics,
             identify_low_confidence_fields,
         )
 
@@ -286,18 +291,34 @@ class DocumentExtractor:
                         threshold=effective_config.confidence_threshold,
                     )
 
-                    return ExtractionResult(
+                    # Compute quality metrics if enabled
+                    quality_metrics = None
+                    if effective_config.compute_quality_metrics:
+                        quality_metrics = compute_quality_metrics(
+                            data=extracted_data,
+                            schema=schema,
+                            field_confidences=field_confidences,
+                            confidence_threshold=effective_config.confidence_threshold,
+                        )
+
+                    result: ExtractionResult[T] = ExtractionResult(
                         data=extracted_data,
                         success=True,
                         confidence=confidence_assessment.overall_confidence,
                         field_confidences=field_confidences,
                         low_confidence_fields=low_conf_fields if low_conf_fields else None,
+                        quality_metrics=quality_metrics,
                         model_used=response.model,
                         cached=response.cached,
                         tokens_used=response.usage.total_tokens,
                         cost_usd=response.tracking.cost_usd if response.tracking else None,
                         raw_response=response.content,
                     )
+
+                    # Invoke human-in-the-loop callbacks
+                    result = self._invoke_callbacks(result, schema, effective_config)
+
+                    return result
                 else:
                     last_error = ValueError("LLM did not return parsed data")
 
@@ -315,6 +336,44 @@ class DocumentExtractor:
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,
         )
+
+    def _invoke_callbacks(
+        self,
+        result: ExtractionResult[T],
+        schema: type[T],
+        config: ExtractionConfig,
+    ) -> ExtractionResult[T]:
+        """Invoke human-in-the-loop callbacks based on result and config.
+
+        Args:
+            result: The extraction result.
+            schema: The extraction schema.
+            config: The extraction configuration.
+
+        Returns:
+            Potentially modified extraction result.
+        """
+        # Check for low confidence callback
+        if (
+            config.on_low_confidence
+            and result.confidence is not None
+            and result.confidence < config.review_confidence_threshold
+        ):
+            modified = config.on_low_confidence(result)
+            if modified is not None:
+                return modified
+
+        # Check for review required callback (based on quality metrics)
+        if (
+            config.on_review_required
+            and result.quality_metrics is not None
+            and result.quality_metrics.needs_review
+        ):
+            modified = config.on_review_required(result)
+            if modified is not None:
+                return modified
+
+        return result
 
     def _build_confidence_system_prompt(self, custom_prompt: str | None = None) -> str:
         """Build system prompt with confidence assessment instructions."""

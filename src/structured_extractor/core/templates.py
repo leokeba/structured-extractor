@@ -3,7 +3,10 @@
 This module provides:
 - DocumentTemplate: Base class for extraction templates with serialization
 - TemplateRegistry: Registry for managing and discovering templates
-- Built-in templates for common document types (invoice, receipt, etc.)
+
+For built-in schemas and templates, see:
+- structured_extractor.schemas: Pre-built Pydantic models for common documents
+- structured_extractor.templates: Pre-configured templates with optimized prompts
 """
 
 from __future__ import annotations

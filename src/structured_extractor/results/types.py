@@ -1,8 +1,13 @@
 """Result types for extraction outputs."""
 
-from typing import Any, Generic, TypeVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    pass
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -52,6 +57,10 @@ class ExtractionResult(BaseModel, Generic[T]):
     low_confidence_fields: list[str] | None = Field(
         default=None,
         description="List of field names with confidence below threshold",
+    )
+    quality_metrics: Any = Field(
+        default=None,
+        description="Detailed quality metrics for the extraction (ExtractionQualityMetrics)",
     )
 
     # Metadata
