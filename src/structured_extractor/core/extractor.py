@@ -1,7 +1,7 @@
 """Main document extractor class."""
 
 import os
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 from seeds_clients import Message, OpenAIClient
@@ -161,8 +161,8 @@ class DocumentExtractor:
         # We need to return something, so we create with required fields only
         error_data = self._create_error_placeholder(resolved_schema)
 
-        return ExtractionResult(
-            data=error_data,  # type: ignore[arg-type]
+        return ExtractionResult[T](
+            data=cast(T, error_data),
             success=False,
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,
