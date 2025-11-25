@@ -53,3 +53,9 @@ data/
 *.log
 .env
 .env.local
+
+# Generated test images (can be regenerated with generate_test_images.py)
+examples/assets/*.png
+
+# Test results output
+examples/results/

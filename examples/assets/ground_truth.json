@@ -1,0 +1,102 @@
+{
+  "invoice_simple.png": {
+    "invoice_number": "INV-2024-0001",
+    "date": "2024-11-25",
+    "vendor_name": "ABC Company LLC",
+    "customer_name": "Customer Corp",
+    "total_amount": 3700.0,
+    "currency": "USD"
+  },
+  "invoice_detailed.png": {
+    "invoice_number": "TS-2024-0789",
+    "date": "2024-11-25",
+    "vendor_name": "Tech Solutions Inc.",
+    "customer_name": "Enterprise Corp",
+    "subtotal": 9700.0,
+    "tax_amount": 800.25,
+    "total_amount": 10500.25,
+    "line_items_count": 5,
+    "currency": "USD"
+  },
+  "invoice_international.png": {
+    "invoice_number": "FA-2024-0456",
+    "date": "2024-11-25",
+    "vendor_name": "EuroTech GmbH",
+    "customer_name": "Soci\u00e9t\u00e9 Fran\u00e7aise SARL",
+    "subtotal": 14450.0,
+    "tax_amount": 2745.5,
+    "total_amount": 17195.5,
+    "currency": "EUR"
+  },
+  "receipt_grocery.png": {
+    "store_name": "FRESH MART",
+    "date": "2024-11-25",
+    "time": "14:23",
+    "items_count": 8,
+    "subtotal": 37.1,
+    "tax": 2.32,
+    "total": 39.42,
+    "payment_method": "VISA"
+  },
+  "receipt_restaurant.png": {
+    "store_name": "THE GOLDEN FORK",
+    "date": "2024-11-25",
+    "server": "MARIA",
+    "table": "12",
+    "guests": 4,
+    "items_count": 8,
+    "subtotal": 179.0,
+    "tax": 15.89,
+    "total": 194.89
+  },
+  "business_card_modern.png": {
+    "name": "Sarah Johnson",
+    "title": "Chief Technology Officer",
+    "company": "INNOVATE TECH",
+    "email": "sarah.johnson@innovatetech.com",
+    "phone": "+1 (415) 555-0192",
+    "website": "www.innovatetech.com"
+  },
+  "business_card_minimal.png": {
+    "name": "DAVID CHEN",
+    "title": "Software Architect",
+    "email": "d.chen@nexusdev.io",
+    "phone": "415.555.0234"
+  },
+  "form_application.png": {
+    "applicant_name": "Michael Robert Thompson",
+    "date_of_birth": "1990-03-15",
+    "email": "m.thompson@email.com",
+    "phone": "(555) 867-5309",
+    "current_employer": "Tech Solutions Inc.",
+    "position": "Senior Software Developer",
+    "degree": "Bachelor of Science in Computer Science",
+    "institution": "State University"
+  },
+  "shipping_label.png": {
+    "sender_name": "Amazon Fulfillment Center",
+    "sender_address": "1000 Warehouse Way, Seattle, WA 98101",
+    "recipient_name": "Jennifer Martinez",
+    "recipient_address": "456 Oak Avenue, Apt 12B, Los Angeles, CA 90001",
+    "tracking_number": "1Z999AA10123456784",
+    "weight": "2.5 lbs",
+    "ship_date": "2024-11-25",
+    "service": "PRIORITY MAIL 2-DAY"
+  },
+  "id_card.png": {
+    "name": "ANDERSON, EMILY J.",
+    "title": "Software Engineer III",
+    "employee_id": "EMP-2024-0892",
+    "department": "Engineering",
+    "start_date": "2022-06-15",
+    "company": "ACME CORPORATION",
+    "valid_through": "2025-12-31"
+  },
+  "data_table.png": {
+    "report_title": "Q3 2024 Sales Report",
+    "regions_count": 5,
+    "total_q3_sales": 1537000.0,
+    "total_ytd": 4303000.0,
+    "overall_growth": "+10.2%"
+  }
+}
