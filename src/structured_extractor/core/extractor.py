@@ -479,9 +479,7 @@ class DocumentExtractor:
         system_message = self._prompt_builder.build_system_prompt(system_prompt)
 
         # Build extraction prompt without document content
-        schema_description = self._prompt_builder._describe_schema(
-            resolved_schema, resolved_hints
-        )
+        schema_description = self._prompt_builder._describe_schema(resolved_schema, resolved_hints)
 
         prompt_parts = [
             "## Extraction Schema",
@@ -491,28 +489,34 @@ class DocumentExtractor:
         ]
 
         if additional_context:
-            prompt_parts.extend([
-                "## Additional Context",
-                "",
-                additional_context,
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## Additional Context",
+                    "",
+                    additional_context,
+                    "",
+                ]
+            )
 
         if examples:
             examples_text = self._prompt_builder._format_examples(examples)
-            prompt_parts.extend([
-                "## Examples",
-                "",
-                examples_text,
-                "",
-            ])
+            prompt_parts.extend(
+                [
+                    "## Examples",
+                    "",
+                    examples_text,
+                    "",
+                ]
+            )
 
-        prompt_parts.extend([
-            "## Task",
-            "",
-            "Extract the structured data from the image(s) according to the schema. "
-            "Return only the extracted data in the specified format.",
-        ])
+        prompt_parts.extend(
+            [
+                "## Task",
+                "",
+                "Extract the structured data from the image(s) according to the schema. "
+                "Return only the extracted data in the specified format.",
+            ]
+        )
 
         text_prompt = "\n".join(prompt_parts)
 
