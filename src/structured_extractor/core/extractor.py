@@ -3,16 +3,20 @@
 import os
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from PIL import Image
 from pydantic import BaseModel
 from seeds_clients import Message, OpenAIClient
+from seeds_clients.core.types import CumulativeTracking
 
 from structured_extractor.core.config import ExtractionConfig
 from structured_extractor.core.templates import DocumentTemplate
 from structured_extractor.prompts.builder import PromptBuilder
 from structured_extractor.results.types import ExtractionResult
+
+if TYPE_CHECKING:
+    from seeds_clients.tracking.boamps_reporter import BoAmpsReport
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -589,3 +593,134 @@ class DocumentExtractor:
         if isinstance(image, Path):
             return str(image)
         return image
+
+    # =========================================================================
+    # Tracking and Reporting
+    # =========================================================================
+
+    @property
+    def cumulative_tracking(self) -> CumulativeTracking:
+        """Get cumulative tracking data for all extraction requests.
+
+        Returns tracking information across all extractions made with this
+        extractor, including request counts, token usage, costs, and
+        carbon emissions.
+
+        Returns:
+            CumulativeTracking object with aggregated metrics.
+
+        Example:
+            ```python
+            extractor = DocumentExtractor(model="gpt-4.1")
+
+            # Make several extractions
+            for doc in documents:
+                extractor.extract(doc, schema=Invoice)
+
+            # Check cumulative stats
+            tracking = extractor.cumulative_tracking
+            print(f"Total requests: {tracking.total_request_count}")
+            print(f"Cache hit rate: {tracking.cache_hit_rate:.1%}")
+            print(f"Total cost: ${tracking.total_cost_usd:.4f}")
+            print(f"Carbon: {tracking.api_gwp_kgco2eq:.6f} kgCO2eq")
+            ```
+        """
+        return self._client.cumulative_tracking
+
+    def reset_cumulative_tracking(self) -> None:
+        """Reset cumulative tracking to start fresh measurements.
+
+        Useful when you want to track metrics for a specific batch
+        of extractions separately from previous work.
+
+        Example:
+            ```python
+            extractor = DocumentExtractor(model="gpt-4.1")
+
+            # Process first batch
+            for doc in batch1:
+                extractor.extract(doc, schema=Invoice)
+            report1 = extractor.export_boamps_report("batch1_report.json")
+
+            # Reset and process second batch
+            extractor.reset_cumulative_tracking()
+            for doc in batch2:
+                extractor.extract(doc, schema=Invoice)
+            report2 = extractor.export_boamps_report("batch2_report.json")
+            ```
+        """
+        self._client.reset_cumulative_tracking()
+
+    def export_boamps_report(
+        self,
+        output_path: str | Path,
+        *,
+        publisher_name: str | None = None,
+        publisher_division: str | None = None,
+        project_name: str | None = None,
+        task_description: str | None = None,
+        task_family: str = "textGeneration",
+        include_summary: bool = True,
+        **kwargs: Any,
+    ) -> "BoAmpsReport":
+        """Export a BoAmps-compliant energy consumption report.
+
+        Generates a standardized JSON report following the BoAmps format
+        for energy consumption of document extraction tasks. BoAmps is
+        a standard developed by Boavizta for reporting AI environmental
+        impact.
+
+        See: https://github.com/Boavizta/BoAmps
+
+        Args:
+            output_path: Path where to save the JSON report.
+            publisher_name: Name of the organization publishing the report.
+            publisher_division: Division/department within the organization.
+            project_name: Name of the project.
+            task_description: Free-form description of the extraction task.
+            task_family: Family of the task (default: "textGeneration").
+            include_summary: Whether to print a summary to console.
+            **kwargs: Additional arguments passed to BoAmpsReporter.
+
+        Returns:
+            BoAmpsReport object containing all energy consumption data.
+
+        Example:
+            ```python
+            from pydantic import BaseModel
+
+            class Invoice(BaseModel):
+                invoice_number: str
+                total: float
+
+            extractor = DocumentExtractor(model="gpt-4.1")
+
+            # Process documents
+            for doc in documents:
+                extractor.extract(doc, schema=Invoice)
+
+            # Export BoAmps report
+            report = extractor.export_boamps_report(
+                "extraction_report.json",
+                publisher_name="My Company",
+                task_description="Invoice data extraction",
+            )
+
+            # Access report data programmatically
+            print(f"Total energy: {report.measures[0].powerConsumption} kWh")
+            print(f"Total requests: {report.task.nbRequest}")
+            print(f"Model used: {report.task.algorithms[0].foundationModelName}")
+            ```
+        """
+        from seeds_clients.tracking.boamps_reporter import BoAmpsReporter
+
+        reporter = BoAmpsReporter(
+            client=self._client,
+            publisher_name=publisher_name,
+            publisher_division=publisher_division,
+            project_name=project_name,
+            task_description=task_description,
+            task_family=task_family,
+            **kwargs,
+        )
+        return reporter.export(output_path, include_summary=include_summary)

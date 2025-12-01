@@ -296,6 +296,65 @@ extractor = DocumentExtractor(model="gpt-4.1", default_config=config)
 result = extractor.extract_with_confidence(document_text, schema=Invoice)
 ```
 
+### Carbon Tracking & BoAmps Reporting
+
+Track environmental impact and generate standardized energy consumption reports following the [BoAmps format](https://github.com/Boavizta/BoAmps):
+
+```python
+from pydantic import BaseModel, Field
+from structured_extractor import DocumentExtractor
+
+class Invoice(BaseModel):
+    invoice_number: str
+    total_amount: float
+
+extractor = DocumentExtractor(model="gpt-4.1")
+
+# Process multiple documents
+documents = ["Invoice #001...", "Invoice #002...", "Invoice #003..."]
+for doc in documents:
+    extractor.extract(doc, schema=Invoice)
+
+# Check cumulative tracking stats
+tracking = extractor.cumulative_tracking
+print(f"Total requests: {tracking.total_request_count}")
+print(f"Cache hit rate: {tracking.cache_hit_rate:.1%}")
+print(f"Total cost: ${tracking.total_cost_usd:.4f}")
+print(f"Carbon emissions: {tracking.api_gwp_kgco2eq:.6f} kgCO2eq")
+print(f"Emissions avoided (cache): {tracking.emissions_avoided_kgco2eq:.6f} kgCO2eq")
+
+# Export BoAmps-compliant report
+report = extractor.export_boamps_report(
+    "extraction_report.json",
+    publisher_name="My Company",
+    project_name="Document Processing Pipeline",
+    task_description="Invoice data extraction from PDF documents",
+)
+
+# Access report data programmatically
+print(f"Total energy: {report.measures[0].powerConsumption} kWh")
+print(f"Model: {report.task.algorithms[0].foundationModelName}")
+```
+
+For more control, use the `BoAmpsReporter` directly:
+
+```python
+from structured_extractor import BoAmpsReporter
+
+reporter = BoAmpsReporter(
+    client=extractor._client,  # Access underlying client
+    publisher_name="Research Organization",
+    publisher_division="AI Team",
+    project_name="Sustainability Study",
+    task_description="Document extraction benchmark",
+    infrastructure_type="publicCloud",
+    quality="high",
+)
+
+report = reporter.generate_report()
+report.save("detailed_report.json")
+```
+
 ### Large Document Handling
 
 ```python

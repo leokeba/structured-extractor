@@ -2,6 +2,9 @@
 structured-extractor: A LLM-driven structured data extractor for document parsing.
 """
 
+from seeds_clients.core.types import CumulativeTracking
+from seeds_clients.tracking.boamps_reporter import BoAmpsReport, BoAmpsReporter
+
 from structured_extractor.core.config import ExtractionConfig, FieldConfig
 from structured_extractor.core.extractor import DocumentExtractor
 from structured_extractor.core.templates import (
@@ -75,4 +78,8 @@ __all__ = [
     "FieldConfidence",
     "ExtractionQualityMetrics",
     "compute_quality_metrics",
+    # Tracking & Reporting
+    "CumulativeTracking",
+    "BoAmpsReport",
+    "BoAmpsReporter",
 ]
