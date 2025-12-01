@@ -56,7 +56,7 @@ uv run python -m pytest tests/ -v --tb=short
 uv run ruff check src/ tests/
 
 # Run type checking
-uv run mypy src/
+uv run ty check src/
 ```
 
 - All tests must pass
@@ -80,7 +80,7 @@ Line length is 100 characters.
 
 ### Type Checking
 
-We use **mypy** in strict mode. All code must be fully typed.
+We use **ty** for type checking. All code must be fully typed.
 
 ## Project Structure
 
@@ -159,7 +159,7 @@ Dev dependencies:
 - `pytest-asyncio>=0.23` - Async test support
 - `pytest-cov>=4.0` - Coverage reporting
 - `ruff>=0.4` - Linting
-- `mypy>=1.10` - Type checking
+- `ty` - Type checking
 
 ## Python Version
 
