@@ -15,6 +15,7 @@ A powerful LLM-driven structured data extractor for document parsing, built on t
 - 🌍 **Carbon Tracking** - Built-in environmental impact tracking from seeds-clients
 - 📊 **Confidence Scores** - Field-level and overall confidence scoring
 - 📈 **Quality Metrics** - Completeness ratios, warnings, and review flags
+- 🎯 **Performance Evaluation** - Precision, recall, F1, accuracy metrics against ground truth
 - 🔄 **Human-in-the-Loop** - Callback hooks for low-confidence review
 - 🔌 **Extensible** - Template inheritance, custom prompts, and registries
 
@@ -296,6 +297,101 @@ extractor = DocumentExtractor(model="gpt-4.1", default_config=config)
 result = extractor.extract_with_confidence(document_text, schema=Invoice)
 ```
 
+### Performance Evaluation
+
+Evaluate extraction quality against ground truth data with precision, recall, F1, and accuracy metrics:
+
+```python
+from pydantic import BaseModel, Field
+from structured_extractor import DocumentExtractor
+from structured_extractor.evaluation import (
+    ExtractionEvaluator,
+    NumericComparator,
+    StringComparator,
+    EvaluationReporter,
+)
+
+class Invoice(BaseModel):
+    invoice_number: str = Field(description="Invoice ID")
+    total_amount: float = Field(description="Total amount")
+    vendor_name: str = Field(description="Vendor name")
+
+# Create evaluator with an extractor
+extractor = DocumentExtractor(model="gpt-4.1")
+evaluator = ExtractionEvaluator(
+    extractor,
+    default_string_threshold=0.85,   # 85% similarity for string match
+    default_numeric_tolerance=0.02,  # 2% tolerance for numbers
+)
+
+# Evaluate a single extraction
+result = evaluator.evaluate(
+    document="Invoice #INV-001\nTotal: $1,250.00\nFrom: Acme Corp",
+    schema=Invoice,
+    ground_truth={
+        "invoice_number": "INV-001",
+        "total_amount": 1250.0,
+        "vendor_name": "Acme Corp",
+    },
+)
+
+# Binary metrics (for classification)
+print(f"Precision: {result.precision:.2%}")
+print(f"Recall: {result.recall:.2%}")
+print(f"F1 Score: {result.f1_score:.2%}")
+print(f"Accuracy: {result.accuracy:.2%}")
+
+# Continuous score metrics (for similarity)
+print(f"Mean Score: {result.mean_score:.2%}")
+
+# Per-field breakdown
+for match in result.field_matches:
+    status = "✓" if match.matched else "✗"
+    print(f"  {match.field_name}: {status} (score: {match.score:.2f})")
+```
+
+#### Custom Comparators
+
+Use field-specific comparators with configurable thresholds:
+
+```python
+from structured_extractor.evaluation import (
+    ExactComparator,      # Exact equality
+    NumericComparator,    # Numeric with tolerance
+    StringComparator,     # Levenshtein similarity
+    ContainsComparator,   # Substring match
+    DateComparator,       # Date format normalization
+    ListComparator,       # List comparison
+)
+
+result = evaluator.evaluate(
+    document=doc,
+    schema=Invoice,
+    ground_truth=ground_truth,
+    field_comparators={
+        "invoice_number": ExactComparator(),  # Must match exactly
+        "total_amount": NumericComparator(threshold=0.05),  # 5% tolerance
+        "vendor_name": StringComparator(threshold=0.8),  # 80% similarity
+    },
+)
+```
+
+#### Batch Evaluation and Reports
+
+```python
+# Evaluate multiple test cases
+metrics = evaluator.compute_aggregate_metrics()
+
+print(f"Micro F1: {metrics.micro_f1:.2%}")  # Global F1 across all fields
+print(f"Macro F1: {metrics.macro_f1:.2%}")  # Average F1 per evaluation
+
+# Generate reports in multiple formats
+reporter = EvaluationReporter(evaluator.evaluations, metrics)
+reporter.save("report.json")   # JSON format
+reporter.save("report.md")     # Markdown format
+reporter.print_summary()       # Console output
+```
+
 ### Carbon Tracking & BoAmps Reporting
 
 Track environmental impact and generate standardized energy consumption reports following the [BoAmps format](https://github.com/Boavizta/BoAmps):
@@ -387,6 +483,11 @@ structured_extractor/
 ├── results/
 │   ├── types.py             # ExtractionResult, FieldResult
 │   └── confidence.py        # Confidence scoring, ExtractionQualityMetrics
+├── evaluation/              # Performance evaluation module
+│   ├── types.py             # EvaluationMetrics, FieldMatch, ExtractionEvaluation
+│   ├── comparators.py       # Field comparators (Exact, Numeric, String, etc.)
+│   ├── evaluator.py         # ExtractionEvaluator class
+│   └── reporters.py         # EvaluationReporter (JSON, Markdown, text)
 ├── schemas/                 # Built-in Pydantic schemas for common documents
 │   ├── invoice.py           # InvoiceSchema, InvoiceLineItem
 │   ├── receipt.py           # ReceiptSchema
