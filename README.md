@@ -18,6 +18,7 @@ A powerful LLM-driven structured data extractor for document parsing, built on t
 - 🎯 **Performance Evaluation** - Precision, recall, F1, accuracy metrics against ground truth
 - 🔄 **Human-in-the-Loop** - Callback hooks for low-confidence review
 - 🔌 **Extensible** - Template inheritance, custom prompts, and registries
+- 🤖 **Multi-Provider Support** - Use OpenAI, Anthropic, Google, OpenRouter, or any seeds-clients provider
 
 ## 📦 Installation
 
@@ -84,6 +85,49 @@ print(f"Total: {result.data.currency} {result.data.total_amount}")
 # Vendor: Acme Corporation
 # Total: USD 8250.0
 ```
+
+### Using Different LLM Providers
+
+`structured-extractor` supports any client from the [seeds-clients](https://github.com/leokeba/seeds-clients) library, giving you flexibility to use OpenAI, Anthropic, Google, OpenRouter, or other providers:
+
+```python
+from pydantic import BaseModel, Field
+from structured_extractor import DocumentExtractor
+
+class Invoice(BaseModel):
+    invoice_number: str = Field(description="The invoice ID")
+    total_amount: float = Field(description="Total amount due")
+
+# Using Anthropic Claude
+from seeds_clients import AnthropicClient
+
+client = AnthropicClient(
+    model="claude-sonnet-4-20250514",
+    cache_dir="./cache",
+)
+extractor = DocumentExtractor(client=client)
+result = extractor.extract(document_text, schema=Invoice)
+
+# Using Google Gemini
+from seeds_clients import GoogleClient
+
+client = GoogleClient(
+    model="gemini-2.5-flash",
+    cache_dir="./cache",
+)
+extractor = DocumentExtractor(client=client)
+
+# Using OpenRouter (access multiple providers)
+from seeds_clients import OpenRouterClient
+
+client = OpenRouterClient(
+    model="anthropic/claude-3-5-sonnet",  # provider/model format
+    cache_dir="./cache",
+)
+extractor = DocumentExtractor(client=client)
+```
+
+When you provide a `client` parameter, the `api_key`, `model`, `cache_dir`, and `cache_ttl_hours` parameters are ignored since the client is already configured.
 
 ### Nested Structures
 
@@ -648,8 +692,13 @@ structured_extractor/
 ### Environment Variables
 
 ```bash
-# Required
+# Required (when not using client injection)
 OPENAI_API_KEY=your-api-key
+
+# For other providers
+ANTHROPIC_API_KEY=your-anthropic-key
+GOOGLE_API_KEY=your-google-key
+OPENROUTER_API_KEY=your-openrouter-key
 
 # Optional
 STRUCTURED_EXTRACTOR_CACHE_DIR=./cache
@@ -662,24 +711,35 @@ STRUCTURED_EXTRACTOR_DEFAULT_MODEL=gpt-4.1
 ```python
 from structured_extractor import DocumentExtractor, ExtractionConfig
 
+# Option 1: Simple initialization (uses OpenAI)
 extractor = DocumentExtractor(
-    # LLM Configuration
-    api_key="your-key",
+    api_key="your-key",  # or use OPENAI_API_KEY env var
     model="gpt-4.1",
-    temperature=0.0,  # Deterministic extraction
-    
-    # Caching
     cache_dir="./cache",
     cache_ttl_hours=24.0,
-    
-    # Chunking
-    chunking_strategy="semantic",
-    chunk_size=4000,
-    chunk_overlap=200,
-    
-    # Extraction
+)
+
+# Option 2: Inject a pre-configured client (any provider)
+from seeds_clients import AnthropicClient
+
+client = AnthropicClient(
+    model="claude-sonnet-4-20250514",
+    cache_dir="./cache",
+    ttl_hours=24.0,
+)
+extractor = DocumentExtractor(client=client)
+
+# Option 3: With custom extraction configuration
+config = ExtractionConfig(
+    temperature=0.0,  # Deterministic extraction
     max_retries=3,
     retry_on_validation_error=True,
+    compute_quality_metrics=True,
+    confidence_threshold=0.8,
+)
+extractor = DocumentExtractor(
+    client=client,
+    default_config=config,
 )
 ```
 

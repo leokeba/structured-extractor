@@ -2,6 +2,7 @@
 structured-extractor: A LLM-driven structured data extractor for document parsing.
 """
 
+from seeds_clients.core.base_client import BaseClient
 from seeds_clients.core.types import CumulativeTracking
 from seeds_clients.tracking.boamps_reporter import BoAmpsReport, BoAmpsReporter
 
@@ -72,6 +73,7 @@ __all__ = [
     "DocumentTemplate",
     "TemplateRegistry",
     "TemplateValidationError",
+    "BaseClient",  # For type hints when injecting clients
     # Built-in Templates
     "BuiltinTemplates",
     # Built-in Schemas

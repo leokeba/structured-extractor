@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from PIL import Image
 from pydantic import BaseModel
 from seeds_clients import Message, OpenAIClient
+from seeds_clients.core.base_client import BaseClient
 from seeds_clients.core.types import CumulativeTracking
 
 from structured_extractor.core.config import ExtractionConfig
@@ -28,6 +29,7 @@ class DocumentExtractor:
     """LLM-driven structured data extractor for documents.
 
     Uses seeds-clients for LLM integration and Pydantic for schema validation.
+    Supports any client from seeds-clients (OpenAI, Anthropic, Google, OpenRouter, etc.).
 
     Example:
         ```python
@@ -39,14 +41,24 @@ class DocumentExtractor:
             total_amount: float
             vendor_name: str
 
+        # Using default OpenAI client
         extractor = DocumentExtractor(model="gpt-4.1")
         result = extractor.extract(document_text, schema=Invoice)
         print(result.data.invoice_number)
+
+        # Using Anthropic client
+        from seeds_clients import AnthropicClient
+        client = AnthropicClient(model="claude-sonnet-4-20250514")
+        extractor = DocumentExtractor(client=client)
+        result = extractor.extract(document_text, schema=Invoice)
         ```
     """
 
+    _client: BaseClient
+
     def __init__(
         self,
+        client: BaseClient | None = None,
         api_key: str | None = None,
         model: str = "gpt-4.1",
         cache_dir: str = "cache",
@@ -56,22 +68,32 @@ class DocumentExtractor:
         """Initialize the document extractor.
 
         Args:
-            api_key: OpenAI API key. If not provided, uses OPENAI_API_KEY env var.
-            model: LLM model to use for extraction.
-            cache_dir: Directory for caching LLM responses.
-            cache_ttl_hours: Cache TTL in hours. None disables caching.
+            client: Pre-configured LLM client from seeds-clients. If provided,
+                api_key, model, cache_dir, and cache_ttl_hours are ignored.
+                Supports any client: OpenAIClient, AnthropicClient, GoogleClient,
+                OpenRouterClient, ModelGardenClient.
+            api_key: OpenAI API key. Only used if client is not provided.
+                If not provided, uses OPENAI_API_KEY env var.
+            model: LLM model to use. Only used if client is not provided.
+            cache_dir: Directory for caching LLM responses. Only used if client is not provided.
+            cache_ttl_hours: Cache TTL in hours. Only used if client is not provided.
             default_config: Default extraction configuration.
         """
-        self.model = model
         self.default_config = default_config or ExtractionConfig()
 
-        # Initialize the LLM client
-        self._client = OpenAIClient(
-            api_key=api_key or os.getenv("OPENAI_API_KEY"),
-            model=model,
-            cache_dir=cache_dir,
-            ttl_hours=cache_ttl_hours,
-        )
+        if client is not None:
+            # Use provided client (any BaseClient implementation)
+            self._client = client
+            self.model = client.model
+        else:
+            # Backwards-compatible: create OpenAIClient with provided parameters
+            self.model = model
+            self._client = OpenAIClient(
+                api_key=api_key or os.getenv("OPENAI_API_KEY"),
+                model=model,
+                cache_dir=cache_dir,
+                ttl_hours=cache_ttl_hours,
+            )
 
         # Initialize prompt builder
         self._prompt_builder = PromptBuilder(
