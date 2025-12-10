@@ -607,6 +607,120 @@ class DocumentExtractor:
             model_used=self.model,
         )
 
+    def extract_multimodal(
+        self,
+        document: str,
+        images: ImageInput | Sequence[ImageInput],
+        schema: type[T] | None = None,
+        template: DocumentTemplate | None = None,
+        config: ExtractionConfig | None = None,
+        field_hints: dict[str, str] | None = None,
+        additional_context: str | None = None,
+    ) -> ExtractionResult[T]:
+        """Extract structured data using both text and images.
+
+        Combines a text document with one or more images in a single request.
+
+        Args:
+            document: The text to extract from (e.g., email body or notes).
+            images: One or more images containing relevant content.
+            schema: Pydantic model defining the extraction schema.
+            template: Pre-configured document template (alternative to schema).
+            config: Extraction configuration (overrides default).
+            field_hints: Additional hints for specific fields.
+            additional_context: Optional extra context appended to the prompt.
+
+        Returns:
+            ExtractionResult containing the extracted data and metadata.
+
+        Raises:
+            ValueError: If neither schema nor template is provided.
+        """
+        # Resolve schema and config from template if provided
+        if template is not None:
+            resolved_schema: type[BaseModel] = template.schema_class
+            resolved_config = config or self.default_config
+            resolved_hints = {**(template.field_configs or {}), **(field_hints or {})}
+            system_prompt = template.system_prompt
+            examples = template.examples
+        elif schema is not None:
+            resolved_schema = schema
+            resolved_config = config or self.default_config
+            resolved_hints = field_hints or {}
+            system_prompt = resolved_config.system_prompt
+            examples = None
+        else:
+            raise ValueError("Either 'schema' or 'template' must be provided")
+
+        # Build system and user prompts
+        system_message = self._prompt_builder.build_system_prompt(system_prompt)
+        user_prompt = self._prompt_builder.build_extraction_prompt(
+            document=document,
+            schema=resolved_schema,
+            field_hints=resolved_hints,
+            examples=examples,
+        )
+
+        if additional_context:
+            user_prompt = f"{user_prompt}\n\n## Additional Context\n\n{additional_context}"
+
+        content: list[dict[str, Any]] = [
+            {"type": "text", "text": user_prompt},
+        ]
+
+        if isinstance(images, (str, Path, bytes, Image.Image)):
+            images_to_process: list[ImageInput] = [images]
+        else:
+            images_to_process = cast(list[ImageInput], list(images))
+
+        for img in images_to_process:
+            img_source = self._normalize_image_source(img)
+            content.append({"type": "image", "source": img_source})
+
+        messages = [
+            Message(role="system", content=system_message),
+            Message(role="user", content=content),
+        ]
+
+        llm_kwargs: dict[str, Any] = {
+            "response_format": resolved_schema,
+            "temperature": resolved_config.temperature,
+        }
+        if resolved_config.max_tokens:
+            llm_kwargs["max_tokens"] = resolved_config.max_tokens
+
+        last_error: Exception | None = None
+        for _attempt in range(resolved_config.max_retries):
+            try:
+                response = self._client.generate(messages, **llm_kwargs)
+
+                if response.parsed is not None:
+                    return ExtractionResult(
+                        data=response.parsed,  # type: ignore[arg-type]
+                        success=True,
+                        model_used=response.model,
+                        cached=response.cached,
+                        tokens_used=response.usage.total_tokens,
+                        cost_usd=response.tracking.cost_usd if response.tracking else None,
+                        raw_response=response.content,
+                    )
+
+                last_error = ValueError("LLM did not return parsed data")
+
+            except Exception as e:
+                last_error = e
+                if not resolved_config.retry_on_validation_error:
+                    break
+
+        error_data = self._create_error_placeholder(resolved_schema)
+
+        return ExtractionResult[T](
+            data=cast(T, error_data),
+            success=False,
+            error=str(last_error) if last_error else "Unknown error",
+            model_used=self.model,
+        )
+
     def _normalize_image_source(self, image: ImageInput) -> str | bytes | Image.Image:
         """Normalize image input to a format seeds-clients can handle.
 

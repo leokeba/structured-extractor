@@ -210,9 +210,7 @@ class TestDocumentExtractorExtract:
         assert result.data.age == 30
         assert result.model_used == "gpt-4.1"
 
-    def test_extract_invoice(
-        self, extractor: DocumentExtractor, mock_client: MagicMock
-    ) -> None:
+    def test_extract_invoice(self, extractor: DocumentExtractor, mock_client: MagicMock) -> None:
         """Test extracting invoice data."""
         mock_response = MagicMock()
         mock_response.parsed = Invoice(
@@ -220,11 +218,13 @@ class TestDocumentExtractorExtract:
             total_amount=1500.00,
             vendor_name="Acme Corp",
         )
-        mock_response.content = json.dumps({
-            "invoice_number": "INV-001",
-            "total_amount": 1500.00,
-            "vendor_name": "Acme Corp",
-        })
+        mock_response.content = json.dumps(
+            {
+                "invoice_number": "INV-001",
+                "total_amount": 1500.00,
+                "vendor_name": "Acme Corp",
+            }
+        )
         mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 150
@@ -335,3 +335,69 @@ class TestDocumentExtractorExtract:
 
         assert result.success is True
         assert mock_client.generate.call_count == 3
+
+
+class TestDocumentExtractorMultimodal:
+    """Tests for DocumentExtractor.extract_multimodal method."""
+
+    @pytest.fixture
+    def mock_client(self) -> MagicMock:
+        """Create a mock OpenAI client."""
+        return MagicMock()
+
+    @pytest.fixture
+    def extractor(self, mock_client: MagicMock) -> DocumentExtractor:
+        """Create an extractor with mocked client."""
+        with patch("structured_extractor.core.extractor.OpenAIClient", return_value=mock_client):
+            return DocumentExtractor(api_key="test-key")
+
+    def test_extract_multimodal_success(
+        self, extractor: DocumentExtractor, mock_client: MagicMock
+    ) -> None:
+        """Test extracting using both text and images."""
+        mock_response = MagicMock()
+        mock_response.parsed = Person(name="Eve", age=28)
+        mock_response.content = "{}"
+        mock_response.model = "gpt-4.1"
+        mock_response.cached = False
+        mock_response.usage.total_tokens = 120
+        mock_response.tracking = None
+        mock_client.generate.return_value = mock_response
+
+        document = "See attached scan for details."
+        image_path = "scan.png"
+        context = "Customer provided ID in the attachment."
+
+        result = extractor.extract_multimodal(
+            document=document,
+            images=image_path,
+            schema=Person,
+            additional_context=context,
+        )
+
+        assert result.success is True
+        assert result.data.name == "Eve"
+        assert result.data.age == 28
+
+        call_args = mock_client.generate.call_args
+        messages = call_args.args[0]
+        user_content = messages[1].content
+
+        assert isinstance(user_content, list)
+        text_part = user_content[0]
+        assert text_part["type"] == "text"
+        assert document in text_part["text"]
+        assert "Additional Context" in text_part["text"]
+        assert context in text_part["text"]
+        assert any(
+            part.get("type") == "image" and part.get("source") == image_path
+            for part in user_content
+        )
+
+        call_kwargs = call_args.kwargs
+        assert call_kwargs["response_format"] == Person
+
+    def test_extract_multimodal_requires_schema(self, extractor: DocumentExtractor) -> None:
+        """Test that schema or template is required for multimodal extraction."""
+        with pytest.raises(ValueError, match="schema.*template"):
+            extractor.extract_multimodal("doc", images="image.png")

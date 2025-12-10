@@ -190,6 +190,34 @@ for result in results:
         print(f"Extracted: {result.data.invoice_number}")
     else:
         print(f"Failed: {result.error}")
+
+### Multimodal (text + images)
+
+Combine textual context with document images in a single request.
+
+```python
+from pydantic import BaseModel, Field
+from structured_extractor import DocumentExtractor
+
+class Receipt(BaseModel):
+    merchant: str = Field(description="Store or restaurant name")
+    total: float = Field(description="Total amount charged")
+    date: str | None = Field(default=None, description="Transaction date if visible")
+
+extractor = DocumentExtractor(model="gpt-4.1")
+
+result = extractor.extract_multimodal(
+    document="See attached receipt for the lunch expense.",
+    images=["./examples/assets/receipt.png"],
+    schema=Receipt,
+    additional_context="Employee ID: 12345",
+)
+
+print(result.data.total)
+```
+
+Images may be file paths, URLs, bytes, or PIL Images. For image-only extraction, use
+`extract_from_image`.
 ```
 
 ### Document Templates
