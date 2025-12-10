@@ -241,16 +241,18 @@ class TestExtractWithConfidence:
 
         mock_response = MagicMock()
         mock_response.parsed = mock_parsed
-        mock_response.content = json.dumps({
-            "extracted_data": {"name": "John Doe", "age": 30},
-            "confidence_assessment": {
-                "overall_confidence": 0.92,
-                "field_confidences": [
-                    {"field_name": "name", "confidence": 0.95},
-                    {"field_name": "age", "confidence": 0.89},
-                ],
-            },
-        })
+        mock_response.content = json.dumps(
+            {
+                "extracted_data": {"name": "John Doe", "age": 30},
+                "confidence_assessment": {
+                    "overall_confidence": 0.92,
+                    "field_confidences": [
+                        {"field_name": "name", "confidence": 0.95},
+                        {"field_name": "age", "confidence": 0.89},
+                    ],
+                },
+            }
+        )
         mock_response.model = "gpt-4.1"
         mock_response.cached = False
         mock_response.usage.total_tokens = 200
@@ -359,6 +361,7 @@ class TestExtractWithConfidence:
 
         assert result.success is False
         assert "API Error" in str(result.error)
+        assert result.data is None
 
 
 class TestExtractionResultWithConfidence:

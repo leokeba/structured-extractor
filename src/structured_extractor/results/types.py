@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     pass
@@ -36,7 +36,10 @@ class ExtractionResult(BaseModel, Generic[T]):
     """
 
     # Core result
-    data: T = Field(description="The extracted structured data")
+    data: T | None = Field(
+        default=None,
+        description="The extracted structured data (None when extraction fails)",
+    )
     success: bool = Field(default=True, description="Whether extraction succeeded")
 
     # Quality metrics
@@ -92,3 +95,10 @@ class ExtractionResult(BaseModel, Generic[T]):
     )
 
     model_config = {"arbitrary_types_allowed": True}
+
+    @model_validator(mode="after")
+    def _validate_data_presence(self) -> ExtractionResult[T]:
+        """Ensure data is present when extraction succeeds."""
+        if self.success and self.data is None:
+            raise ValueError("data must be provided when success is True")
+        return self

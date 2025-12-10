@@ -188,37 +188,12 @@ class DocumentExtractor:
                 if not resolved_config.retry_on_validation_error:
                     break
 
-        # All retries failed
-        # Create a minimal "empty" instance for the error case
-        # We need to return something, so we create with required fields only
-        error_data = self._create_error_placeholder(resolved_schema)
-
         return ExtractionResult[T](
-            data=cast(T, error_data),
+            data=None,
             success=False,
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,
         )
-
-    def _create_error_placeholder(self, schema: type[BaseModel]) -> BaseModel:
-        """Create a placeholder instance for error cases.
-
-        This creates an instance with None/default values for all fields.
-        """
-        # Try to create with all None values
-        field_values: dict[str, Any] = {}
-        for field_name, field_info in schema.model_fields.items():
-            if not field_info.is_required():
-                field_values[field_name] = field_info.default
-            else:
-                # Use None for required fields (will fail validation but gives structure)
-                field_values[field_name] = None
-
-        try:
-            return schema.model_construct(**field_values)
-        except Exception:
-            # Last resort: construct without validation
-            return schema.model_construct(_fields_set=set(), **field_values)
 
     def extract_with_confidence(
         self,
@@ -354,10 +329,8 @@ class DocumentExtractor:
                     break
 
         # All retries failed - return error result
-        error_data = self._create_error_placeholder(schema)
-
         return ExtractionResult[T](
-            data=cast(T, error_data),
+            data=None,
             success=False,
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,
@@ -598,10 +571,8 @@ class DocumentExtractor:
                     break
 
         # All retries failed
-        error_data = self._create_error_placeholder(resolved_schema)
-
         return ExtractionResult[T](
-            data=cast(T, error_data),
+            data=None,
             success=False,
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,
@@ -712,10 +683,8 @@ class DocumentExtractor:
                 if not resolved_config.retry_on_validation_error:
                     break
 
-        error_data = self._create_error_placeholder(resolved_schema)
-
         return ExtractionResult[T](
-            data=cast(T, error_data),
+            data=None,
             success=False,
             error=str(last_error) if last_error else "Unknown error",
             model_used=self.model,

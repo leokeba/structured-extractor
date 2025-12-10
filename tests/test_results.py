@@ -72,6 +72,17 @@ class TestExtractionResult:
         assert result.success is False
         assert result.error == "Failed to parse document"
 
+    def test_failed_extraction_without_data(self) -> None:
+        """Test failed extraction can omit data."""
+        result = ExtractionResult(
+            data=None,
+            success=False,
+            error="Failed to parse document",
+        )
+
+        assert result.data is None
+        assert result.success is False
+
     def test_extraction_with_confidence(self) -> None:
         """Test extraction result with confidence scores."""
         data = SampleData(name="Test", value=42)

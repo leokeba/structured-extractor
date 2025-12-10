@@ -311,6 +311,7 @@ class TestDocumentExtractorExtract:
 
         assert result.success is False
         assert "API Error" in str(result.error)
+        assert result.data is None
 
     def test_extract_retries_on_error(
         self, extractor: DocumentExtractor, mock_client: MagicMock
