@@ -107,6 +107,7 @@ class DocumentExtractor:
         template: DocumentTemplate | None = None,
         config: ExtractionConfig | None = None,
         field_hints: dict[str, str] | None = None,
+        use_cache: bool | None = None,
     ) -> ExtractionResult[T]:
         """Extract structured data from a document.
 
@@ -162,11 +163,17 @@ class DocumentExtractor:
         if resolved_config.max_tokens:
             llm_kwargs["max_tokens"] = resolved_config.max_tokens
 
+        cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
+
         # Call LLM with retry logic
         last_error: Exception | None = None
         for _attempt in range(resolved_config.max_retries):
             try:
-                response = self._client.generate(messages, **llm_kwargs)
+                response = self._client.generate(
+                    messages,
+                    use_cache=cache_enabled,
+                    **llm_kwargs,
+                )
 
                 # Build result
                 if response.parsed is not None:
@@ -201,6 +208,7 @@ class DocumentExtractor:
         schema: type[T],
         config: ExtractionConfig | None = None,
         field_hints: dict[str, str] | None = None,
+        use_cache: bool | None = None,
     ) -> ExtractionResult[T]:
         """Extract with confidence scoring for each field.
 
@@ -268,11 +276,17 @@ class DocumentExtractor:
         if effective_config.max_tokens:
             llm_kwargs["max_tokens"] = effective_config.max_tokens
 
+        cache_enabled = effective_config.use_cache if use_cache is None else use_cache
+
         # Call LLM with retry logic
         last_error: Exception | None = None
         for _attempt in range(effective_config.max_retries):
             try:
-                response = self._client.generate(messages, **llm_kwargs)
+                response = self._client.generate(
+                    messages,
+                    use_cache=cache_enabled,
+                    **llm_kwargs,
+                )
 
                 if response.parsed is not None:
                     # Extract the data and confidence from the response
@@ -411,6 +425,7 @@ class DocumentExtractor:
         config: ExtractionConfig | None = None,
         field_hints: dict[str, str] | None = None,
         additional_context: str | None = None,
+        use_cache: bool | None = None,
     ) -> ExtractionResult[T]:
         """Extract structured data from an image or images.
 
@@ -545,11 +560,17 @@ class DocumentExtractor:
         if resolved_config.max_tokens:
             llm_kwargs["max_tokens"] = resolved_config.max_tokens
 
+        cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
+
         # Call LLM with retry logic
         last_error: Exception | None = None
         for _attempt in range(resolved_config.max_retries):
             try:
-                response = self._client.generate(messages, **llm_kwargs)
+                response = self._client.generate(
+                    messages,
+                    use_cache=cache_enabled,
+                    **llm_kwargs,
+                )
 
                 # Build result
                 if response.parsed is not None:
@@ -587,6 +608,7 @@ class DocumentExtractor:
         config: ExtractionConfig | None = None,
         field_hints: dict[str, str] | None = None,
         additional_context: str | None = None,
+        use_cache: bool | None = None,
     ) -> ExtractionResult[T]:
         """Extract structured data using both text and images.
 
@@ -660,10 +682,16 @@ class DocumentExtractor:
         if resolved_config.max_tokens:
             llm_kwargs["max_tokens"] = resolved_config.max_tokens
 
+        cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
+
         last_error: Exception | None = None
         for _attempt in range(resolved_config.max_retries):
             try:
-                response = self._client.generate(messages, **llm_kwargs)
+                response = self._client.generate(
+                    messages,
+                    use_cache=cache_enabled,
+                    **llm_kwargs,
+                )
 
                 if response.parsed is not None:
                     return ExtractionResult(

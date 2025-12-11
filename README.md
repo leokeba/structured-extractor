@@ -129,6 +129,13 @@ extractor = DocumentExtractor(client=client)
 
 When you provide a `client` parameter, the `api_key`, `model`, `cache_dir`, and `cache_ttl_hours` parameters are ignored since the client is already configured.
 
+### Caching behavior
+
+- Caching is **enabled by default** when the underlying seeds-clients client has a `cache_dir`.
+- You can toggle it globally via `ExtractionConfig(use_cache=False)` or per call with `extract(..., use_cache=False)` (applies to `extract`, `extract_with_confidence`, `extract_from_image`, and `extract_multimodal`).
+- Cached responses return `result.cached = True` and still carry usage/tracking data from seeds-clients.
+- Cache key generation is handled by seeds-clients (model + messages + generation params), so changing temperature/max_tokens produces new entries.
+
 ### Nested Structures
 
 ```python

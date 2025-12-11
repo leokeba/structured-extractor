@@ -73,6 +73,10 @@ class ExtractionConfig(BaseModel):
         default=None,
         description="Maximum tokens for LLM response",
     )
+    use_cache: bool = Field(
+        default=True,
+        description="Whether to use the LLM client's cache for requests",
+    )
 
     # Prompt settings
     system_prompt: str | None = Field(

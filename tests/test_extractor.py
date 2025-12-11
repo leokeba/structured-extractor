@@ -1,10 +1,12 @@
 """Tests for the DocumentExtractor class."""
 
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel, Field
+from seeds_clients import Response, Usage
 
 from structured_extractor import BaseClient, DocumentExtractor, ExtractionConfig
 
@@ -263,6 +265,7 @@ class TestDocumentExtractorExtract:
         call_kwargs = mock_client.generate.call_args.kwargs
         assert "response_format" in call_kwargs
         assert call_kwargs["response_format"] == Person
+        assert call_kwargs["use_cache"] is True
 
     def test_extract_with_custom_config(
         self, extractor: DocumentExtractor, mock_client: MagicMock
@@ -283,6 +286,7 @@ class TestDocumentExtractorExtract:
         call_kwargs = mock_client.generate.call_args.kwargs
         assert call_kwargs["temperature"] == 0.5
         assert call_kwargs["max_tokens"] == 500
+        assert call_kwargs["use_cache"] is True
 
     def test_extract_cached_response(
         self, extractor: DocumentExtractor, mock_client: MagicMock
@@ -397,8 +401,75 @@ class TestDocumentExtractorMultimodal:
 
         call_kwargs = call_args.kwargs
         assert call_kwargs["response_format"] == Person
+        assert call_kwargs["use_cache"] is True
 
     def test_extract_multimodal_requires_schema(self, extractor: DocumentExtractor) -> None:
         """Test that schema or template is required for multimodal extraction."""
         with pytest.raises(ValueError, match="schema.*template"):
             extractor.extract_multimodal("doc", images="image.png")
+
+
+class DummyCachingClient(BaseClient):
+    """Minimal BaseClient implementation that exercises caching paths."""
+
+    def __init__(self, cache_dir: str) -> None:
+        super().__init__(
+            model="dummy",
+            api_key="test",
+            cache_dir=cache_dir,
+            enable_tracking=False,
+        )
+        self.call_count = 0
+
+    def _setup_tracking(self) -> None:  # pragma: no cover - tracking disabled
+        self.tracker = None
+
+    def _call_api(self, messages, **kwargs):
+        self.call_count += 1
+        return {
+            "choices": [
+                {"message": {"content": json.dumps({"value": "cached-value"})}},
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            "model": "dummy-model",
+        }
+
+    async def _acall_api(self, messages, **kwargs):
+        return self._call_api(messages, **kwargs)
+
+    def _parse_response(self, raw: dict[str, Any]) -> Response[Any]:
+        usage_data = raw.get("usage", {})
+        return Response[Any](
+            content=raw["choices"][0]["message"]["content"],
+            usage=Usage(**usage_data),
+            model=raw.get("model", "dummy-model"),
+            raw=raw,
+        )
+
+    def _get_provider_name(self) -> str:
+        return "dummy"
+
+
+class TestDocumentExtractorCachingIntegration:
+    """Integration tests that validate cache usage with a real CacheManager."""
+
+    def test_extract_uses_cache_by_default(self, tmp_path: Any) -> None:
+        """Ensure repeated calls use cache and avoid duplicate provider calls."""
+
+        class Simple(BaseModel):
+            value: str
+
+        cache_dir = tmp_path / "cache"
+        client = DummyCachingClient(str(cache_dir))
+        extractor = DocumentExtractor(client=client)
+
+        first = extractor.extract("cached doc", schema=Simple)
+        second = extractor.extract("cached doc", schema=Simple)
+
+        assert client.call_count == 1
+        assert first.cached is False
+        assert second.cached is True
+        assert first.data and first.data.value == "cached-value"
+        assert second.data and second.data.value == "cached-value"
+
+        client.close()
