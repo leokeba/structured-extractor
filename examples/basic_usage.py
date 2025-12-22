@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from structured_extractor import DocumentExtractor, ExtractionConfig
+from structured_extractor import DocumentExtractor, ExtractionConfig, ExtractionError
 
 # Load environment variables
 load_dotenv()
@@ -80,17 +80,16 @@ def example_basic_extraction() -> None:
     """
 
     # Extract structured data
-    result = extractor.extract(document, schema=Invoice)
-
-    if result.success:
+    try:
+        result = extractor.extract(document, schema=Invoice)
         print(f"Invoice Number: {result.data.invoice_number}")
         print(f"Date: {result.data.date}")
         print(f"Vendor: {result.data.vendor_name}")
         print(f"Total: {result.data.currency} {result.data.total_amount}")
         print(f"\nCached: {result.cached}")
         print(f"Tokens used: {result.tokens_used}")
-    else:
-        print(f"Extraction failed: {result.error}")
+    except Exception as e:
+        print(f"Extraction failed: {e}")
 
 
 def example_nested_extraction() -> None:
@@ -122,9 +121,9 @@ def example_nested_extraction() -> None:
     Grand Total: $1,748.24
     """
 
-    result = extractor.extract(document, schema=DetailedInvoice)
+    try:
+        result = extractor.extract(document, schema=DetailedInvoice)
 
-    if result.success:
         print(f"Invoice: {result.data.invoice_number}")
         print(f"Vendor: {result.data.vendor_name}")
         print("\nLine Items:")
@@ -133,8 +132,8 @@ def example_nested_extraction() -> None:
         print(f"\nSubtotal: ${result.data.subtotal:.2f}")
         print(f"Tax: ${result.data.tax:.2f}")
         print(f"Total: ${result.data.total:.2f}")
-    else:
-        print(f"Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"Extraction failed: {e}")
 
 
 def example_custom_config() -> None:
@@ -162,13 +161,13 @@ def example_custom_config() -> None:
     Date: Nov 25, 2024
     """
 
-    result = extractor.extract(document, schema=Invoice, config=config)
+    try:
+        result = extractor.extract(document, schema=Invoice, config=config)
 
-    if result.success:
         print(f"Extracted: {result.data.model_dump_json(indent=2)}")
         print(f"Model used: {result.model_used}")
-    else:
-        print(f"Failed: {result.error}")
+    except ExtractionError as e:
+        print(f"Failed: {e}")
 
 
 if __name__ == "__main__":

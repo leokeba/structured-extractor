@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     pass
@@ -36,11 +36,9 @@ class ExtractionResult(BaseModel, Generic[T]):
     """
 
     # Core result
-    data: T | None = Field(
-        default=None,
-        description="The extracted structured data (None when extraction fails)",
+    data: T = Field(
+        description="The extracted structured data",
     )
-    success: bool = Field(default=True, description="Whether extraction succeeded")
 
     # Quality metrics
     confidence: float | None = Field(
@@ -84,21 +82,9 @@ class ExtractionResult(BaseModel, Generic[T]):
         description="Estimated cost in USD",
     )
 
-    # Error handling
-    error: str | None = Field(
-        default=None,
-        description="Error message if extraction failed",
-    )
     raw_response: str | None = Field(
         default=None,
         description="Raw LLM response for debugging",
     )
 
     model_config = {"arbitrary_types_allowed": True}
-
-    @model_validator(mode="after")
-    def _validate_data_presence(self) -> ExtractionResult[T]:
-        """Ensure data is present when extraction succeeds."""
-        if self.success and self.data is None:
-            raise ValueError("data must be provided when success is True")
-        return self

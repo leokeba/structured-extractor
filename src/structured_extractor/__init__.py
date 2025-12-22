@@ -7,11 +7,18 @@ from seeds_clients.core.types import CumulativeTracking
 from seeds_clients.tracking.boamps_reporter import BoAmpsReport, BoAmpsReporter
 
 from structured_extractor.core.config import ExtractionConfig, FieldConfig
+from structured_extractor.core.exceptions import (
+    ConfigurationError,
+    ExtractionError,
+    ExtractionValidationError,
+    LLMError,
+    StructuredExtractorError,
+    TemplateValidationError,
+)
 from structured_extractor.core.extractor import DocumentExtractor
 from structured_extractor.core.templates import (
     DocumentTemplate,
     TemplateRegistry,
-    TemplateValidationError,
 )
 
 # Evaluation
@@ -72,6 +79,11 @@ __all__ = [
     "DocumentExtractor",
     "DocumentTemplate",
     "TemplateRegistry",
+    "StructuredExtractorError",
+    "ExtractionError",
+    "ExtractionValidationError",
+    "LLMError",
+    "ConfigurationError",
     "TemplateValidationError",
     "BaseClient",  # For type hints when injecting clients
     # Built-in Templates

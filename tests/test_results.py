@@ -48,47 +48,20 @@ class TestExtractionResult:
         data = SampleData(name="Test", value=42)
         result = ExtractionResult(
             data=data,
-            success=True,
             model_used="gpt-4.1",
             tokens_used=100,
         )
 
         assert result.data.name == "Test"
         assert result.data.value == 42
-        assert result.success is True
         assert result.model_used == "gpt-4.1"
         assert result.tokens_used == 100
-        assert result.error is None
-
-    def test_failed_extraction(self) -> None:
-        """Test failed extraction result."""
-        data = SampleData(name="", value=0)
-        result = ExtractionResult(
-            data=data,
-            success=False,
-            error="Failed to parse document",
-        )
-
-        assert result.success is False
-        assert result.error == "Failed to parse document"
-
-    def test_failed_extraction_without_data(self) -> None:
-        """Test failed extraction can omit data."""
-        result = ExtractionResult(
-            data=None,
-            success=False,
-            error="Failed to parse document",
-        )
-
-        assert result.data is None
-        assert result.success is False
 
     def test_extraction_with_confidence(self) -> None:
         """Test extraction result with confidence scores."""
         data = SampleData(name="Test", value=42)
         result = ExtractionResult(
             data=data,
-            success=True,
             confidence=0.92,
             field_confidences={"name": 0.95, "value": 0.89},
         )

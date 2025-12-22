@@ -189,8 +189,7 @@ def test_template_creation(suite: TemplateTestSuite) -> DocumentTemplate | None:
             schema_class=Invoice,
             description="Template for extracting invoice data",
             system_prompt=(
-                "You are an expert invoice processor. "
-                "Extract invoice data with precision."
+                "You are an expert invoice processor. Extract invoice data with precision."
             ),
             field_hints={
                 "invoice_number": "Look for patterns like 'INV-XXXX' or '#XXXX'",
@@ -656,9 +655,7 @@ def test_template_with_examples(suite: TemplateTestSuite) -> None:
         print(f"❌ Failed: {e}")
 
 
-def test_template_extraction(
-    extractor: DocumentExtractor, suite: TemplateTestSuite
-) -> None:
+def test_template_extraction(extractor: DocumentExtractor, suite: TemplateTestSuite) -> None:
     """Test using template for extraction."""
     print("\n" + "-" * 50)
     print("Test: Template-based Extraction")
@@ -691,36 +688,25 @@ def test_template_extraction(
 
         latency_ms = (time.time() - start_time) * 1000
 
-        if result.success:
-            suite.results.append(
-                TemplateTestResult(
-                    test_name="template_extraction",
-                    success=True,
-                    latency_ms=latency_ms,
-                    details={
-                        "invoice_number": result.data.invoice_number,
-                        "vendor": result.data.vendor_name,
-                        "total": result.data.total_amount,
-                        "tokens": result.tokens_used,
-                    },
-                )
+        suite.results.append(
+            TemplateTestResult(
+                test_name="template_extraction",
+                success=True,
+                latency_ms=latency_ms,
+                details={
+                    "invoice_number": result.data.invoice_number,
+                    "vendor": result.data.vendor_name,
+                    "total": result.data.total_amount,
+                    "tokens": result.tokens_used,
+                },
             )
+        )
 
-            print("✅ Template extraction successful")
-            print(f"   Invoice #: {result.data.invoice_number}")
-            print(f"   Vendor: {result.data.vendor_name}")
-            print(f"   Total: ${result.data.total_amount}")
-            print(f"   Latency: {latency_ms:.0f}ms")
-        else:
-            suite.results.append(
-                TemplateTestResult(
-                    test_name="template_extraction",
-                    success=False,
-                    latency_ms=latency_ms,
-                    error=result.error,
-                )
-            )
-            print(f"❌ Extraction failed: {result.error}")
+        print("✅ Template extraction successful")
+        print(f"   Invoice #: {result.data.invoice_number}")
+        print(f"   Vendor: {result.data.vendor_name}")
+        print(f"   Total: ${result.data.total_amount}")
+        print(f"   Latency: {latency_ms:.0f}ms")
 
     except Exception as e:
         latency_ms = (time.time() - start_time) * 1000
@@ -735,9 +721,7 @@ def test_template_extraction(
         print(f"❌ Failed: {e}")
 
 
-def test_multiple_templates(
-    extractor: DocumentExtractor, suite: TemplateTestSuite
-) -> None:
+def test_multiple_templates(extractor: DocumentExtractor, suite: TemplateTestSuite) -> None:
     """Test using multiple different templates."""
     print("\n" + "-" * 50)
     print("Test: Multiple Template Types")
@@ -780,16 +764,18 @@ def test_multiple_templates(
 
         for template, doc, doc_type in templates_and_docs:
             result: ExtractionResult[Any] = extractor.extract(document=doc, template=template)
-            results_summary.append({
-                "type": doc_type,
-                "success": result.success,
-                "tokens": result.tokens_used,
-            })
-            print(f"   {doc_type}: {'✅' if result.success else '❌'}")
+            results_summary.append(
+                {
+                    "type": doc_type,
+                    "success": True,
+                    "tokens": result.tokens_used,
+                }
+            )
+            print(f"   {doc_type}: ✅")
 
         latency_ms = (time.time() - start_time) * 1000
 
-        all_success = all(r["success"] for r in results_summary)
+        all_success = True
 
         suite.results.append(
             TemplateTestResult(
@@ -818,9 +804,7 @@ def test_multiple_templates(
         print(f"❌ Failed: {e}")
 
 
-def test_registry_with_extraction(
-    extractor: DocumentExtractor, suite: TemplateTestSuite
-) -> None:
+def test_registry_with_extraction(extractor: DocumentExtractor, suite: TemplateTestSuite) -> None:
     """Test using registry to manage templates for extraction."""
     print("\n" + "-" * 50)
     print("Test: Registry-based Extraction Workflow")
@@ -864,12 +848,12 @@ def test_registry_with_extraction(
         suite.results.append(
             TemplateTestResult(
                 test_name="registry_extraction",
-                success=result.success,
+                success=True,
                 latency_ms=latency_ms,
                 details={
                     "registry_size": len(registry),
                     "financial_templates": len(financial_templates),
-                    "extraction_success": result.success,
+                    "extraction_success": True,
                 },
             )
         )
@@ -877,7 +861,7 @@ def test_registry_with_extraction(
         print("✅ Registry workflow successful")
         print(f"   Registry size: {len(registry)}")
         print(f"   Financial templates: {len(financial_templates)}")
-        print(f"   Extraction: {'✅' if result.success else '❌'}")
+        print("   Extraction: ✅")
 
     except Exception as e:
         latency_ms = (time.time() - start_time) * 1000

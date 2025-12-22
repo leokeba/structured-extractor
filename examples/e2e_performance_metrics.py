@@ -36,6 +36,7 @@ class TestCase(TypedDict):
     document: str
     ground_truth: dict[str, Any]
 
+
 # Load environment variables
 load_dotenv()
 
@@ -269,18 +270,14 @@ class MetricsCollector:
         # Throughput
         aggregate.total_duration_seconds = total_duration
         if total_duration > 0:
-            aggregate.extractions_per_minute = (
-                aggregate.total_extractions / total_duration * 60
-            )
+            aggregate.extractions_per_minute = aggregate.total_extractions / total_duration * 60
 
         # Accuracy stats
         if self.accuracy_metrics:
             aggregate.avg_accuracy = statistics.mean(
                 m.accuracy_score for m in self.accuracy_metrics
             )
-            aggregate.avg_precision = statistics.mean(
-                m.precision for m in self.accuracy_metrics
-            )
+            aggregate.avg_precision = statistics.mean(m.precision for m in self.accuracy_metrics)
 
         return aggregate
 
@@ -298,7 +295,8 @@ class MetricsCollector:
             f"Total Extractions:     {aggregate.total_extractions}",
             f"Successful:            {aggregate.successful_extractions} "
             f"({aggregate.successful_extractions / aggregate.total_extractions * 100:.1f}%)"
-            if aggregate.total_extractions > 0 else "",
+            if aggregate.total_extractions > 0
+            else "",
             f"Failed:                {aggregate.failed_extractions}",
             f"Cached:                {aggregate.cached_extractions}",
             f"Total Duration:        {aggregate.total_duration_seconds:.1f}s",
@@ -325,13 +323,16 @@ class MetricsCollector:
         ]
 
         if aggregate.avg_accuracy is not None:
-            report_lines.extend([
-                "",
-                "## Accuracy",
-                f"Avg Accuracy:          {aggregate.avg_accuracy:.1%}",
-                f"Avg Precision:         {aggregate.avg_precision:.1%}"
-                if aggregate.avg_precision else "",
-            ])
+            report_lines.extend(
+                [
+                    "",
+                    "## Accuracy",
+                    f"Avg Accuracy:          {aggregate.avg_accuracy:.1%}",
+                    f"Avg Precision:         {aggregate.avg_precision:.1%}"
+                    if aggregate.avg_precision
+                    else "",
+                ]
+            )
 
         # Add per-schema breakdown
         schemas = {m.schema_name for m in self.extraction_metrics}
@@ -505,24 +506,24 @@ def run_performance_tests(extractor: DocumentExtractor, collector: MetricsCollec
         print(f"\n   Running: {test_id}...", end=" ")
 
         start_time = time.time()
-        result = extractor.extract(document, schema=schema)
-        latency_ms = (time.time() - start_time) * 1000
+        try:
+            result = extractor.extract(document, schema=schema)
+            latency_ms = (time.time() - start_time) * 1000
 
-        # Record extraction metrics
-        collector.record_extraction(
-            test_id=test_id,
-            schema_name=schema.__name__,
-            document_length=len(document),
-            success=result.success,
-            latency_ms=latency_ms,
-            tokens_used=result.tokens_used,
-            cost_usd=result.cost_usd,
-            cached=result.cached,
-            error=result.error,
-        )
+            # Record extraction metrics
+            collector.record_extraction(
+                test_id=test_id,
+                schema_name=schema.__name__,
+                document_length=len(document),
+                success=True,
+                latency_ms=latency_ms,
+                tokens_used=result.tokens_used,
+                cost_usd=result.cost_usd,
+                cached=result.cached,
+                error=None,
+            )
 
-        # Record accuracy metrics if successful
-        if result.success:
+            # Record accuracy metrics
             extracted_data = result.data.model_dump()
             accuracy = collector.record_accuracy(
                 test_id=test_id,
@@ -531,8 +532,20 @@ def run_performance_tests(extractor: DocumentExtractor, collector: MetricsCollec
                 partial_match_fields={"date", "occupation"},  # Allow flexible matching
             )
             print(f"✅ Accuracy: {accuracy.accuracy_score:.0%}")
-        else:
-            print(f"❌ {result.error}")
+        except Exception as e:
+            latency_ms = (time.time() - start_time) * 1000
+            collector.record_extraction(
+                test_id=test_id,
+                schema_name=schema.__name__,
+                document_length=len(document),
+                success=False,
+                latency_ms=latency_ms,
+                tokens_used=None,
+                cost_usd=None,
+                cached=False,
+                error=str(e),
+            )
+            print(f"❌ {e}")
 
 
 def run_latency_benchmark(
@@ -556,21 +569,24 @@ def run_latency_benchmark(
         doc_with_marker = document + f"\n<!-- iteration {i} -->"
 
         start_time = time.time()
-        result = extractor.extract(doc_with_marker, schema=Invoice)
-        latency_ms = (time.time() - start_time) * 1000
+        try:
+            result = extractor.extract(doc_with_marker, schema=Invoice)
+            latency_ms = (time.time() - start_time) * 1000
 
-        collector.record_extraction(
-            test_id=f"latency_bench_{i}",
-            schema_name="Invoice",
-            document_length=len(doc_with_marker),
-            success=result.success,
-            latency_ms=latency_ms,
-            tokens_used=result.tokens_used,
-            cost_usd=result.cost_usd,
-            cached=result.cached,
-        )
+            collector.record_extraction(
+                test_id=f"latency_bench_{i}",
+                schema_name="Invoice",
+                document_length=len(doc_with_marker),
+                success=True,
+                latency_ms=latency_ms,
+                tokens_used=result.tokens_used,
+                cost_usd=result.cost_usd,
+                cached=result.cached,
+            )
 
-        print(f"   Iteration {i + 1}: {latency_ms:.0f}ms {'(cached)' if result.cached else ''}")
+            print(f"   Iteration {i + 1}: {latency_ms:.0f}ms {'(cached)' if result.cached else ''}")
+        except Exception as e:
+            print(f"   Iteration {i + 1}: Failed - {e}")
 
 
 def run_throughput_test(
@@ -594,18 +610,30 @@ def run_throughput_test(
     start_time = time.time()
 
     for i, doc in enumerate(documents):
-        result = extractor.extract(doc, schema=Invoice)
+        try:
+            result = extractor.extract(doc, schema=Invoice)
 
-        collector.record_extraction(
-            test_id=f"throughput_{i}",
-            schema_name="Invoice",
-            document_length=len(doc),
-            success=result.success,
-            latency_ms=0,  # Will use aggregate timing
-            tokens_used=result.tokens_used,
-            cost_usd=result.cost_usd,
-            cached=result.cached,
-        )
+            collector.record_extraction(
+                test_id=f"throughput_{i}",
+                schema_name="Invoice",
+                document_length=len(doc),
+                success=True,
+                latency_ms=0,  # Will use aggregate timing
+                tokens_used=result.tokens_used,
+                cost_usd=result.cost_usd,
+                cached=result.cached,
+            )
+        except Exception:
+            collector.record_extraction(
+                test_id=f"throughput_{i}",
+                schema_name="Invoice",
+                document_length=len(doc),
+                success=False,
+                latency_ms=0,
+                tokens_used=None,
+                cost_usd=None,
+                cached=False,
+            )
 
         # Progress indicator
         if (i + 1) % 5 == 0:
@@ -618,9 +646,7 @@ def run_throughput_test(
     print(f"   Throughput: {throughput:.1f} extractions/minute")
 
 
-def run_schema_complexity_test(
-    extractor: DocumentExtractor, collector: MetricsCollector
-) -> None:
+def run_schema_complexity_test(extractor: DocumentExtractor, collector: MetricsCollector) -> None:
     """Test performance across different schema complexities."""
     print("\n" + "=" * 60)
     print("📐 Schema Complexity Test")
@@ -659,7 +685,10 @@ def run_schema_complexity_test(
             "Name: Product\nDescription: A great product\nPrice: $50\n"
             "Quantity: 5\nCategory: Electronics",
         ),
-        ("complex", ComplexSchema, """
+        (
+            "complex",
+            ComplexSchema,
+            """
             Title: Order
             Description: Customer order
 
@@ -670,26 +699,32 @@ def run_schema_complexity_test(
 
             Total: $100
             Tags: urgent, priority
-        """),
+        """,
+        ),
     ]
 
     for complexity, schema, doc in schemas:
         start_time = time.time()
-        result: ExtractionResult[Any] = extractor.extract(doc, schema=schema)
-        latency_ms = (time.time() - start_time) * 1000
+        try:
+            result: ExtractionResult[Any] = extractor.extract(doc, schema=schema)
+            latency_ms = (time.time() - start_time) * 1000
 
-        collector.record_extraction(
-            test_id=f"complexity_{complexity}",
-            schema_name=schema.__name__,
-            document_length=len(doc),
-            success=result.success,
-            latency_ms=latency_ms,
-            tokens_used=result.tokens_used,
-            cost_usd=result.cost_usd,
-            cached=result.cached,
-        )
+            collector.record_extraction(
+                test_id=f"complexity_{complexity}",
+                schema_name=schema.__name__,
+                document_length=len(doc),
+                success=True,
+                latency_ms=latency_ms,
+                tokens_used=result.tokens_used,
+                cost_usd=result.cost_usd,
+                cached=result.cached,
+            )
 
-        print(f"   {complexity.capitalize()}: {latency_ms:.0f}ms, {result.tokens_used or 0} tokens")
+            print(
+                f"   {complexity.capitalize()}: {latency_ms:.0f}ms, {result.tokens_used or 0} tokens"
+            )
+        except Exception as e:
+            print(f"   {complexity.capitalize()}: Failed - {e}")
 
 
 # ============================================================================

@@ -137,16 +137,21 @@ class ExtractionEvaluator:
 
         # Perform extraction with timing
         start_time = time.perf_counter()
-        extraction_result = self.extractor.extract(document, schema=schema)
-        latency_ms = (time.perf_counter() - start_time) * 1000
-
-        # Get extracted data as dict
-        if extraction_result.success and extraction_result.data is not None:
+        try:
+            extraction_result = self.extractor.extract(document, schema=schema)
+            latency_ms = (time.perf_counter() - start_time) * 1000
             extracted_dict = extraction_result.data.model_dump()
             extraction_success = True
-        else:
+            tokens_used = extraction_result.tokens_used
+            cost_usd = extraction_result.cost_usd
+            cached = extraction_result.cached
+        except Exception:
+            latency_ms = (time.perf_counter() - start_time) * 1000
             extracted_dict = {}
             extraction_success = False
+            tokens_used = None
+            cost_usd = None
+            cached = False
 
         # Evaluate fields
         field_matches = self._evaluate_fields(
@@ -163,9 +168,9 @@ class ExtractionEvaluator:
             extraction_success=extraction_success,
             field_matches=field_matches,
             latency_ms=latency_ms,
-            tokens_used=extraction_result.tokens_used,
-            cost_usd=extraction_result.cost_usd,
-            cached=extraction_result.cached,
+            tokens_used=tokens_used,
+            cost_usd=cost_usd,
+            cached=cached,
         )
 
         # Store for aggregate metrics

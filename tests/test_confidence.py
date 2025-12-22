@@ -261,7 +261,6 @@ class TestExtractWithConfidence:
 
         result = extractor.extract_with_confidence("John Doe is 30 years old.", schema=Person)
 
-        assert result.success is True
         assert result.confidence == 0.92
         assert result.field_confidences is not None
         assert result.field_confidences["name"] == 0.95
@@ -305,7 +304,6 @@ class TestExtractWithConfidence:
             schema=Invoice,
         )
 
-        assert result.success is True
         assert result.low_confidence_fields is not None
         assert "total_amount" in result.low_confidence_fields
         assert "vendor_name" in result.low_confidence_fields
@@ -345,23 +343,23 @@ class TestExtractWithConfidence:
             config=config,
         )
 
-        assert result.success is True
         assert result.low_confidence_fields is not None
         # Both should be flagged with 0.9 threshold
         assert "name" in result.low_confidence_fields
         assert "age" in result.low_confidence_fields
 
-    def test_extract_with_confidence_handles_error(
+    def test_extract_with_confidence_raises_on_error(
         self, extractor: DocumentExtractor, mock_client: MagicMock
     ) -> None:
-        """Test that extraction errors are handled gracefully."""
+        """Test that extraction errors raise exceptions."""
+        from structured_extractor import LLMError
+
         mock_client.generate.side_effect = Exception("API Error")
 
-        result = extractor.extract_with_confidence("Test doc", schema=Person)
+        with pytest.raises(LLMError) as excinfo:
+            extractor.extract_with_confidence("Test doc", schema=Person)
 
-        assert result.success is False
-        assert "API Error" in str(result.error)
-        assert result.data is None
+        assert "API Error" in str(excinfo.value)
 
 
 class TestExtractionResultWithConfidence:

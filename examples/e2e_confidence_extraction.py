@@ -273,15 +273,15 @@ def run_confidence_test(
 
         return ConfidenceTestResult(
             test_name=name,
-            success=result.success,
+            success=True,
             overall_confidence=result.confidence,
             field_confidences=result.field_confidences,
             low_confidence_fields=result.low_confidence_fields,
             latency_ms=latency_ms,
             tokens_used=result.tokens_used,
             cost_usd=result.cost_usd,
-            error=result.error,
-            extracted_data=result.data.model_dump() if result.success else None,
+            error=None,
+            extracted_data=result.data.model_dump(),
         )
     except Exception as e:
         latency_ms = (time.time() - start_time) * 1000
@@ -414,8 +414,8 @@ def test_complete_order_confidence(
 
     if result.success:
         print(f"✅ Passed - Overall Confidence: {result.overall_confidence:.2f}")
-        order_id = result.extracted_data['order_id'] if result.extracted_data else 'N/A'
-        total = result.extracted_data['total_amount'] if result.extracted_data else 'N/A'
+        order_id = result.extracted_data["order_id"] if result.extracted_data else "N/A"
+        total = result.extracted_data["total_amount"] if result.extracted_data else "N/A"
         print(f"   Order ID: {order_id}")
         print(f"   Total: ${total}")
 
@@ -426,9 +426,7 @@ def test_complete_order_confidence(
         print(f"❌ Failed: {result.error}")
 
 
-def test_partial_order_confidence(
-    extractor: DocumentExtractor, suite: ConfidenceTestSuite
-) -> None:
+def test_partial_order_confidence(extractor: DocumentExtractor, suite: ConfidenceTestSuite) -> None:
     """Test confidence on partial order document."""
     print("\n" + "-" * 50)
     print("Test: Partial Order Document")
@@ -496,9 +494,7 @@ def test_medical_record_confidence(
         print(f"❌ Failed: {result.error}")
 
 
-def test_medical_record_unclear(
-    extractor: DocumentExtractor, suite: ConfidenceTestSuite
-) -> None:
+def test_medical_record_unclear(extractor: DocumentExtractor, suite: ConfidenceTestSuite) -> None:
     """Test confidence on unclear medical record."""
     print("\n" + "-" * 50)
     print("Test: Medical Record - Unclear")
@@ -556,9 +552,7 @@ def test_confidence_threshold_filtering(
             print(f"   Threshold {threshold}: Failed - {result.error}")
 
 
-def test_confidence_comparison(
-    extractor: DocumentExtractor, suite: ConfidenceTestSuite
-) -> None:
+def test_confidence_comparison(extractor: DocumentExtractor, suite: ConfidenceTestSuite) -> None:
     """Compare confidence scores across different document qualities."""
     print("\n" + "-" * 50)
     print("Test: Confidence Score Comparison")

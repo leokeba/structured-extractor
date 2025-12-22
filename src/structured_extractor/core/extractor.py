@@ -1,17 +1,24 @@
 """Main document extractor class."""
 
+import logging
 import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from PIL import Image
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from seeds_clients import Message, OpenAIClient
 from seeds_clients.core.base_client import BaseClient
 from seeds_clients.core.types import CumulativeTracking
 
 from structured_extractor.core.config import ExtractionConfig
+from structured_extractor.core.exceptions import (
+    ConfigurationError,
+    ExtractionError,
+    ExtractionValidationError,
+    LLMError,
+)
 from structured_extractor.core.templates import DocumentTemplate
 from structured_extractor.prompts.builder import PromptBuilder
 from structured_extractor.results.types import ExtractionResult
@@ -23,6 +30,8 @@ T = TypeVar("T", bound=BaseModel)
 
 # Type alias for image inputs
 ImageInput = str | Path | Image.Image | bytes
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentExtractor:
@@ -122,7 +131,7 @@ class DocumentExtractor:
             ExtractionResult containing the extracted data and metadata.
 
         Raises:
-            ValueError: If neither schema nor template is provided.
+            ConfigurationError: If neither schema nor template is provided.
         """
         # Resolve schema and config from template if provided
         if template is not None:
@@ -138,7 +147,7 @@ class DocumentExtractor:
             system_prompt = resolved_config.system_prompt
             examples = None
         else:
-            raise ValueError("Either 'schema' or 'template' must be provided")
+            raise ConfigurationError("Either 'schema' or 'template' must be provided")
 
         # Build prompts
         system_message = self._prompt_builder.build_system_prompt(system_prompt)
@@ -157,7 +166,6 @@ class DocumentExtractor:
 
         # Prepare LLM kwargs
         llm_kwargs: dict[str, Any] = {
-            "response_format": resolved_schema,
             "temperature": resolved_config.temperature,
         }
         if resolved_config.max_tokens:
@@ -166,40 +174,21 @@ class DocumentExtractor:
         cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
 
         # Call LLM with retry logic
-        last_error: Exception | None = None
-        for _attempt in range(resolved_config.max_retries):
-            try:
-                response = self._client.generate(
-                    messages,
-                    use_cache=cache_enabled,
-                    **llm_kwargs,
-                )
+        response = self._call_llm_with_retry(
+            messages=messages,
+            schema=resolved_schema,
+            config=resolved_config,
+            use_cache=use_cache,
+            **llm_kwargs,
+        )
 
-                # Build result
-                if response.parsed is not None:
-                    return ExtractionResult(
-                        data=response.parsed,  # type: ignore[arg-type]
-                        success=True,
-                        model_used=response.model,
-                        cached=response.cached,
-                        tokens_used=response.usage.total_tokens,
-                        cost_usd=response.tracking.cost_usd if response.tracking else None,
-                        raw_response=response.content,
-                    )
-                else:
-                    # This shouldn't happen with response_format, but handle gracefully
-                    last_error = ValueError("LLM did not return parsed data")
-
-            except Exception as e:
-                last_error = e
-                if not resolved_config.retry_on_validation_error:
-                    break
-
-        return ExtractionResult[T](
-            data=None,
-            success=False,
-            error=str(last_error) if last_error else "Unknown error",
-            model_used=self.model,
+        return ExtractionResult(
+            data=response.parsed,  # type: ignore[arg-type]
+            model_used=response.model,
+            cached=response.cached,
+            tokens_used=response.usage.total_tokens,
+            cost_usd=response.tracking.cost_usd if response.tracking else None,
+            raw_response=response.content,
         )
 
     def extract_with_confidence(
@@ -270,7 +259,6 @@ class DocumentExtractor:
 
         # Prepare LLM kwargs
         llm_kwargs: dict[str, Any] = {
-            "response_format": confidence_schema,
             "temperature": effective_config.temperature,
         }
         if effective_config.max_tokens:
@@ -279,76 +267,57 @@ class DocumentExtractor:
         cache_enabled = effective_config.use_cache if use_cache is None else use_cache
 
         # Call LLM with retry logic
-        last_error: Exception | None = None
-        for _attempt in range(effective_config.max_retries):
-            try:
-                response = self._client.generate(
-                    messages,
-                    use_cache=cache_enabled,
-                    **llm_kwargs,
-                )
-
-                if response.parsed is not None:
-                    # Extract the data and confidence from the response
-                    parsed = response.parsed
-                    extracted_data = parsed.extracted_data
-                    confidence_assessment: ConfidenceAssessment = parsed.confidence_assessment
-
-                    # Convert field confidences to dict
-                    field_confidences = {
-                        fc.field_name: fc.confidence
-                        for fc in confidence_assessment.field_confidences
-                    }
-
-                    # Identify low confidence fields
-                    low_conf_fields = identify_low_confidence_fields(
-                        field_confidences,
-                        threshold=effective_config.confidence_threshold,
-                    )
-
-                    # Compute quality metrics if enabled
-                    quality_metrics = None
-                    if effective_config.compute_quality_metrics:
-                        quality_metrics = compute_quality_metrics(
-                            data=extracted_data,
-                            schema=schema,
-                            field_confidences=field_confidences,
-                            confidence_threshold=effective_config.confidence_threshold,
-                        )
-
-                    result: ExtractionResult[T] = ExtractionResult(
-                        data=extracted_data,
-                        success=True,
-                        confidence=confidence_assessment.overall_confidence,
-                        field_confidences=field_confidences,
-                        low_confidence_fields=low_conf_fields if low_conf_fields else None,
-                        quality_metrics=quality_metrics,
-                        model_used=response.model,
-                        cached=response.cached,
-                        tokens_used=response.usage.total_tokens,
-                        cost_usd=response.tracking.cost_usd if response.tracking else None,
-                        raw_response=response.content,
-                    )
-
-                    # Invoke human-in-the-loop callbacks
-                    result = self._invoke_callbacks(result, schema, effective_config)
-
-                    return result
-                else:
-                    last_error = ValueError("LLM did not return parsed data")
-
-            except Exception as e:
-                last_error = e
-                if not effective_config.retry_on_validation_error:
-                    break
-
-        # All retries failed - return error result
-        return ExtractionResult[T](
-            data=None,
-            success=False,
-            error=str(last_error) if last_error else "Unknown error",
-            model_used=self.model,
+        response = self._call_llm_with_retry(
+            messages=messages,
+            schema=confidence_schema,
+            config=effective_config,
+            use_cache=use_cache,
+            **llm_kwargs,
         )
+
+        # Extract the data and confidence from the response
+        parsed = response.parsed
+        extracted_data = parsed.extracted_data
+        confidence_assessment: ConfidenceAssessment = parsed.confidence_assessment
+
+        # Convert field confidences to dict
+        field_confidences = {
+            fc.field_name: fc.confidence for fc in confidence_assessment.field_confidences
+        }
+
+        # Identify low confidence fields
+        low_conf_fields = identify_low_confidence_fields(
+            field_confidences,
+            threshold=effective_config.confidence_threshold,
+        )
+
+        # Compute quality metrics if enabled
+        quality_metrics = None
+        if effective_config.compute_quality_metrics:
+            quality_metrics = compute_quality_metrics(
+                data=extracted_data,
+                schema=schema,
+                field_confidences=field_confidences,
+                confidence_threshold=effective_config.confidence_threshold,
+            )
+
+        result: ExtractionResult[T] = ExtractionResult(
+            data=extracted_data,
+            confidence=confidence_assessment.overall_confidence,
+            field_confidences=field_confidences,
+            low_confidence_fields=low_conf_fields if low_conf_fields else None,
+            quality_metrics=quality_metrics,
+            model_used=response.model,
+            cached=response.cached,
+            tokens_used=response.usage.total_tokens,
+            cost_usd=response.tracking.cost_usd if response.tracking else None,
+            raw_response=response.content,
+        )
+
+        # Invoke human-in-the-loop callbacks
+        result = self._invoke_callbacks(result, schema, effective_config)
+
+        return result
 
     def _invoke_callbacks(
         self,
@@ -449,7 +418,7 @@ class DocumentExtractor:
             ExtractionResult containing the extracted data and metadata.
 
         Raises:
-            ValueError: If neither schema nor template is provided.
+            ConfigurationError: If neither schema nor template is provided.
 
         Example:
             ```python
@@ -483,7 +452,7 @@ class DocumentExtractor:
             system_prompt = resolved_config.system_prompt
             examples = None
         else:
-            raise ValueError("Either 'schema' or 'template' must be provided")
+            raise ConfigurationError("Either 'schema' or 'template' must be provided")
 
         # Build prompts - use empty string for document since we're using images
         system_message = self._prompt_builder.build_system_prompt(system_prompt)
@@ -554,7 +523,6 @@ class DocumentExtractor:
 
         # Prepare LLM kwargs
         llm_kwargs: dict[str, Any] = {
-            "response_format": resolved_schema,
             "temperature": resolved_config.temperature,
         }
         if resolved_config.max_tokens:
@@ -563,40 +531,21 @@ class DocumentExtractor:
         cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
 
         # Call LLM with retry logic
-        last_error: Exception | None = None
-        for _attempt in range(resolved_config.max_retries):
-            try:
-                response = self._client.generate(
-                    messages,
-                    use_cache=cache_enabled,
-                    **llm_kwargs,
-                )
+        response = self._call_llm_with_retry(
+            messages=messages,
+            schema=resolved_schema,
+            config=resolved_config,
+            use_cache=use_cache,
+            **llm_kwargs,
+        )
 
-                # Build result
-                if response.parsed is not None:
-                    return ExtractionResult(
-                        data=response.parsed,  # type: ignore[arg-type]
-                        success=True,
-                        model_used=response.model,
-                        cached=response.cached,
-                        tokens_used=response.usage.total_tokens,
-                        cost_usd=response.tracking.cost_usd if response.tracking else None,
-                        raw_response=response.content,
-                    )
-                else:
-                    last_error = ValueError("LLM did not return parsed data")
-
-            except Exception as e:
-                last_error = e
-                if not resolved_config.retry_on_validation_error:
-                    break
-
-        # All retries failed
-        return ExtractionResult[T](
-            data=None,
-            success=False,
-            error=str(last_error) if last_error else "Unknown error",
-            model_used=self.model,
+        return ExtractionResult(
+            data=response.parsed,  # type: ignore[arg-type]
+            model_used=response.model,
+            cached=response.cached,
+            tokens_used=response.usage.total_tokens,
+            cost_usd=response.tracking.cost_usd if response.tracking else None,
+            raw_response=response.content,
         )
 
     def extract_multimodal(
@@ -643,7 +592,7 @@ class DocumentExtractor:
             system_prompt = resolved_config.system_prompt
             examples = None
         else:
-            raise ValueError("Either 'schema' or 'template' must be provided")
+            raise ConfigurationError("Either 'schema' or 'template' must be provided")
 
         # Build system and user prompts
         system_message = self._prompt_builder.build_system_prompt(system_prompt)
@@ -676,47 +625,93 @@ class DocumentExtractor:
         ]
 
         llm_kwargs: dict[str, Any] = {
-            "response_format": resolved_schema,
             "temperature": resolved_config.temperature,
         }
         if resolved_config.max_tokens:
             llm_kwargs["max_tokens"] = resolved_config.max_tokens
 
-        cache_enabled = resolved_config.use_cache if use_cache is None else use_cache
+        # Call LLM with retry logic
+        response = self._call_llm_with_retry(
+            messages=messages,
+            schema=resolved_schema,
+            config=resolved_config,
+            use_cache=use_cache,
+            **llm_kwargs,
+        )
 
+        return ExtractionResult(
+            data=response.parsed,  # type: ignore[arg-type]
+            model_used=response.model,
+            cached=response.cached,
+            tokens_used=response.usage.total_tokens,
+            cost_usd=response.tracking.cost_usd if response.tracking else None,
+            raw_response=response.content,
+        )
+
+    def _call_llm_with_retry(
+        self,
+        messages: list[Message],
+        schema: type[BaseModel],
+        config: ExtractionConfig,
+        use_cache: bool | None = None,
+        **llm_kwargs: Any,
+    ) -> Any:
+        """Call LLM with retry logic and specific error handling.
+
+        Returns:
+            The LLM response if successful.
+
+        Raises:
+            ExtractionValidationError: If validation fails.
+            LLMError: If the LLM call fails.
+            ExtractionError: For other extraction failures.
+        """
+        cache_enabled = config.use_cache if use_cache is None else use_cache
         last_error: Exception | None = None
-        for _attempt in range(resolved_config.max_retries):
+
+        for attempt in range(config.max_retries):
             try:
+                logger.debug(
+                    "Extraction attempt %d/%d (model=%s)",
+                    attempt + 1,
+                    config.max_retries,
+                    self.model,
+                )
                 response = self._client.generate(
                     messages,
                     use_cache=cache_enabled,
+                    response_format=schema,
                     **llm_kwargs,
                 )
 
                 if response.parsed is not None:
-                    return ExtractionResult(
-                        data=response.parsed,  # type: ignore[arg-type]
-                        success=True,
-                        model_used=response.model,
-                        cached=response.cached,
-                        tokens_used=response.usage.total_tokens,
-                        cost_usd=response.tracking.cost_usd if response.tracking else None,
-                        raw_response=response.content,
-                    )
+                    return response
 
-                last_error = ValueError("LLM did not return parsed data")
-
-            except Exception as e:
-                last_error = e
-                if not resolved_config.retry_on_validation_error:
+                last_error = ExtractionValidationError(
+                    "LLM did not return parsed data matching the schema",
+                    raw_response=response.content,
+                )
+                logger.warning("Validation failed on attempt %d: No parsed data", attempt + 1)
+            except ValidationError as e:
+                last_error = ExtractionValidationError(
+                    f"Validation error on attempt {attempt + 1}: {str(e)}",
+                    validation_errors=e.errors(),
+                )
+                logger.warning("Validation error on attempt %d: %s", attempt + 1, str(e))
+                if not config.retry_on_validation_error:
                     break
+            except Exception as e:
+                last_error = LLMError(
+                    f"LLM call failed on attempt {attempt + 1}: {str(e)}",
+                    last_error=e,
+                )
+                logger.warning("LLM call failed on attempt %d: %s", attempt + 1, str(e))
 
-        return ExtractionResult[T](
-            data=None,
-            success=False,
-            error=str(last_error) if last_error else "Unknown error",
-            model_used=self.model,
-        )
+        # If we're here, all retries failed
+        logger.error("Extraction failed after %d attempts: %s", config.max_retries, str(last_error))
+        if isinstance(last_error, ExtractionError):
+            raise last_error
+        raise ExtractionError(str(last_error)) from last_error
 
     def _normalize_image_source(self, image: ImageInput) -> str | bytes | Image.Image:
         """Normalize image input to a format seeds-clients can handle.

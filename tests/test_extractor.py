@@ -8,7 +8,12 @@ import pytest
 from pydantic import BaseModel, Field
 from seeds_clients import Response, Usage
 
-from structured_extractor import BaseClient, DocumentExtractor, ExtractionConfig
+from structured_extractor import (
+    BaseClient,
+    ConfigurationError,
+    DocumentExtractor,
+    ExtractionConfig,
+)
 
 
 class Invoice(BaseModel):
@@ -124,7 +129,6 @@ class TestDocumentExtractorWithInjectedClient:
 
         result = extractor.extract("Alice is 25 years old.", schema=Person)
 
-        assert result.success is True
         assert result.data.name == "Alice"
         assert result.data.age == 25
         assert result.model_used == "mock-model"
@@ -153,7 +157,6 @@ class TestDocumentExtractorWithInjectedClient:
 
         result = extractor.extract_with_confidence("Bob is 30.", schema=Person)
 
-        assert result.success is True
         assert result.data.name == "Bob"
         assert result.confidence == 0.95
         mock_client.generate.assert_called_once()
@@ -187,7 +190,7 @@ class TestDocumentExtractorExtract:
 
     def test_extract_requires_schema_or_template(self, extractor: DocumentExtractor) -> None:
         """Test that extract raises error without schema or template."""
-        with pytest.raises(ValueError, match="schema.*template"):
+        with pytest.raises(ConfigurationError, match="schema.*template"):
             extractor.extract("Some document")
 
     def test_extract_simple_document(
@@ -207,7 +210,6 @@ class TestDocumentExtractorExtract:
         document = "John Doe is 30 years old."
         result = extractor.extract(document, schema=Person)
 
-        assert result.success is True
         assert result.data.name == "John Doe"
         assert result.data.age == 30
         assert result.model_used == "gpt-4.1"
@@ -241,7 +243,6 @@ class TestDocumentExtractorExtract:
 
         result = extractor.extract(document, schema=Invoice)
 
-        assert result.success is True
         assert result.data.invoice_number == "INV-001"
         assert result.data.total_amount == 1500.00
         assert result.data.vendor_name == "Acme Corp"
@@ -305,17 +306,18 @@ class TestDocumentExtractorExtract:
 
         assert result.cached is True
 
-    def test_extract_handles_error(
+    def test_extract_raises_on_error(
         self, extractor: DocumentExtractor, mock_client: MagicMock
     ) -> None:
-        """Test that extraction errors are handled gracefully."""
+        """Test that extraction errors raise exceptions."""
+        from structured_extractor import LLMError
+
         mock_client.generate.side_effect = Exception("API Error")
 
-        result = extractor.extract("Test doc", schema=Person)
+        with pytest.raises(LLMError) as excinfo:
+            extractor.extract("Test doc", schema=Person)
 
-        assert result.success is False
-        assert "API Error" in str(result.error)
-        assert result.data is None
+        assert "API Error" in str(excinfo.value)
 
     def test_extract_retries_on_error(
         self, extractor: DocumentExtractor, mock_client: MagicMock
@@ -338,7 +340,7 @@ class TestDocumentExtractorExtract:
 
         result = extractor.extract("Test doc", schema=Person)
 
-        assert result.success is True
+        assert result.data.name == "Success"
         assert mock_client.generate.call_count == 3
 
 
@@ -380,7 +382,6 @@ class TestDocumentExtractorMultimodal:
             additional_context=context,
         )
 
-        assert result.success is True
         assert result.data.name == "Eve"
         assert result.data.age == 28
 
@@ -405,7 +406,7 @@ class TestDocumentExtractorMultimodal:
 
     def test_extract_multimodal_requires_schema(self, extractor: DocumentExtractor) -> None:
         """Test that schema or template is required for multimodal extraction."""
-        with pytest.raises(ValueError, match="schema.*template"):
+        with pytest.raises(ConfigurationError, match="schema.*template"):
             extractor.extract_multimodal("doc", images="image.png")
 
 

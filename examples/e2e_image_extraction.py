@@ -20,7 +20,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from structured_extractor import DocumentExtractor
+from structured_extractor import DocumentExtractor, ExtractionError
 
 # Load environment variables
 load_dotenv()
@@ -138,16 +138,16 @@ def test_invoice_extraction(extractor: DocumentExtractor, image_path: Path) -> N
     # Note: Could use PromptBuilder(template=PromptTemplates.invoice())
     # for a more specialized invoice extraction
 
-    result = extractor.extract_from_image(
-        image=image_path,
-        schema=InvoiceData,
-        field_hints={
-            "invoice_number": "Look for 'Invoice #', 'INV-', or similar patterns",
-            "total_amount": "The final total including all taxes and fees",
-        },
-    )
+    try:
+        result = extractor.extract_from_image(
+            image=image_path,
+            schema=InvoiceData,
+            field_hints={
+                "invoice_number": "Look for 'Invoice #', 'INV-', or similar patterns",
+                "total_amount": "The final total including all taxes and fees",
+            },
+        )
 
-    if result.success:
         print("\n✅ Extraction successful!")
         print("\n📄 Extracted Data:")
         print(f"   Invoice #: {result.data.invoice_number}")
@@ -162,8 +162,8 @@ def test_invoice_extraction(extractor: DocumentExtractor, image_path: Path) -> N
         print(f"   Tokens: {result.tokens_used}")
         print(f"   Cost: ${result.cost_usd:.4f}" if result.cost_usd else "   Cost: N/A")
         print(f"   Cached: {result.cached}")
-    else:
-        print(f"\n❌ Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"\n❌ Extraction failed: {e}")
 
 
 def test_receipt_extraction(extractor: DocumentExtractor, image_path: Path) -> None:
@@ -177,13 +177,13 @@ def test_receipt_extraction(extractor: DocumentExtractor, image_path: Path) -> N
         print(f"⚠️  Image not found: {image_path}")
         return
 
-    result = extractor.extract_from_image(
-        image=image_path,
-        schema=ReceiptData,
-        additional_context="This is a receipt from a store or restaurant.",
-    )
+    try:
+        result = extractor.extract_from_image(
+            image=image_path,
+            schema=ReceiptData,
+            additional_context="This is a receipt from a store or restaurant.",
+        )
 
-    if result.success:
         print("\n✅ Extraction successful!")
         print("\n🧾 Extracted Data:")
         print(f"   Store: {result.data.store_name}")
@@ -196,13 +196,11 @@ def test_receipt_extraction(extractor: DocumentExtractor, image_path: Path) -> N
         print(f"   Subtotal: ${result.data.subtotal:.2f}" if result.data.subtotal else "")
         print(f"   Tax: ${result.data.tax:.2f}" if result.data.tax else "")
         print(f"   Total: ${result.data.total:.2f}")
-    else:
-        print(f"\n❌ Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"\n❌ Extraction failed: {e}")
 
 
-def test_business_card_extraction(
-    extractor: DocumentExtractor, image_path: Path
-) -> None:
+def test_business_card_extraction(extractor: DocumentExtractor, image_path: Path) -> None:
     """Test extracting data from a business card image."""
     print("\n" + "=" * 60)
     print("Test: Business Card Extraction")
@@ -213,13 +211,13 @@ def test_business_card_extraction(
         print(f"⚠️  Image not found: {image_path}")
         return
 
-    result = extractor.extract_from_image(
-        image=image_path,
-        schema=BusinessCard,
-        additional_context="Extract contact information from this business card.",
-    )
+    try:
+        result = extractor.extract_from_image(
+            image=image_path,
+            schema=BusinessCard,
+            additional_context="Extract contact information from this business card.",
+        )
 
-    if result.success:
         print("\n✅ Extraction successful!")
         print("\n👤 Contact Info:")
         print(f"   Name: {result.data.name}")
@@ -229,8 +227,8 @@ def test_business_card_extraction(
         print(f"   Phone: {result.data.phone}")
         print(f"   Mobile: {result.data.mobile}")
         print(f"   Website: {result.data.website}")
-    else:
-        print(f"\n❌ Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"\n❌ Extraction failed: {e}")
 
 
 def test_url_image_extraction(extractor: DocumentExtractor) -> None:
@@ -256,26 +254,24 @@ def test_url_image_extraction(extractor: DocumentExtractor) -> None:
         year: int | None = Field(default=None, description="Tax year if applicable")
         issuing_agency: str | None = Field(default=None, description="Agency that issues the form")
 
-    result = extractor.extract_from_image(
-        image=sample_url,
-        schema=BasicFormData,
-        additional_context="This is a tax form. Extract basic identifying information.",
-    )
+    try:
+        result = extractor.extract_from_image(
+            image=sample_url,
+            schema=BasicFormData,
+            additional_context="This is a tax form. Extract basic identifying information.",
+        )
 
-    if result.success:
         print("\n✅ Extraction successful!")
         print(f"   Form Name: {result.data.form_name}")
         print(f"   Form Number: {result.data.form_number}")
         print(f"   Year: {result.data.year}")
         print(f"   Agency: {result.data.issuing_agency}")
         print(f"   Tokens: {result.tokens_used}")
-    else:
-        print(f"\n❌ Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"\n❌ Extraction failed: {e}")
 
 
-def test_multi_image_extraction(
-    extractor: DocumentExtractor, image_paths: list[Path]
-) -> None:
+def test_multi_image_extraction(extractor: DocumentExtractor, image_paths: list[Path]) -> None:
     """Test extracting from multiple images at once."""
     print("\n" + "=" * 60)
     print("Test: Multi-Image Extraction")
@@ -289,22 +285,22 @@ def test_multi_image_extraction(
 
     print(f"Processing {len(existing_images)} images...")
 
-    result = extractor.extract_from_image(
-        image=existing_images,
-        schema=DetailedInvoice,
-        additional_context=(
-            "These images may be different pages of the same invoice. "
-            "Combine the information from all pages."
-        ),
-    )
+    try:
+        result = extractor.extract_from_image(
+            image=existing_images,
+            schema=DetailedInvoice,
+            additional_context=(
+                "These images may be different pages of the same invoice. "
+                "Combine the information from all pages."
+            ),
+        )
 
-    if result.success:
         print("\n✅ Extraction successful!")
         print(f"   Combined from {len(existing_images)} images")
         print(f"   Line items found: {len(result.data.line_items)}")
         print(f"   Total: ${result.data.total:.2f}")
-    else:
-        print(f"\n❌ Extraction failed: {result.error}")
+    except ExtractionError as e:
+        print(f"\n❌ Extraction failed: {e}")
 
 
 # ============================================================================

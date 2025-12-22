@@ -19,11 +19,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
-class TemplateValidationError(Exception):
-    """Raised when template validation fails."""
-
-    pass
+from structured_extractor.core.exceptions import TemplateValidationError
 
 
 class DocumentTemplate(BaseModel):
@@ -122,18 +118,14 @@ class DocumentTemplate(BaseModel):
 
         # Check schema has fields
         if not self.schema_class.model_fields:
-            raise TemplateValidationError(
-                f"Template '{self.name}' schema has no fields defined"
-            )
+            raise TemplateValidationError(f"Template '{self.name}' schema has no fields defined")
 
         # Check field_hints reference valid fields
         if self.field_hints:
             schema_fields = set(self.schema_class.model_fields.keys())
             for field_name in self.field_hints:
                 if field_name not in schema_fields:
-                    warnings.append(
-                        f"Field hint '{field_name}' does not match any schema field"
-                    )
+                    warnings.append(f"Field hint '{field_name}' does not match any schema field")
 
         # Check examples have valid structure
         if self.examples:
@@ -261,9 +253,7 @@ class DocumentTemplate(BaseModel):
         Returns:
             DocumentTemplate instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and Path(source).exists()
-        ):
+        if isinstance(source, Path) or (isinstance(source, str) and Path(source).exists()):
             content = Path(source).read_text()
         else:
             content = source
@@ -286,9 +276,7 @@ class DocumentTemplate(BaseModel):
         Returns:
             DocumentTemplate instance.
         """
-        if isinstance(source, Path) or (
-            isinstance(source, str) and Path(source).exists()
-        ):
+        if isinstance(source, Path) or (isinstance(source, str) and Path(source).exists()):
             content = Path(source).read_text()
         else:
             content = source
@@ -376,8 +364,7 @@ class TemplateRegistry:
         """
         if template.name in self._templates and not overwrite:
             raise ValueError(
-                f"Template '{template.name}' already registered. "
-                "Use overwrite=True to replace."
+                f"Template '{template.name}' already registered. Use overwrite=True to replace."
             )
 
         # Validate template
